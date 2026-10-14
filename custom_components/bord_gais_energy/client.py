@@ -9,6 +9,7 @@ from datetime import date
 import aiohttp
 from .account_data import summarize
 from .gas_data import normalize_gas
+from .usage_data import normalize_electricity
 
 BASE = 'https://www.bordgaisenergy.ie'
 MAX_BYTES = 4 * 1024 * 1024
@@ -132,7 +133,7 @@ class BGEClient:
             await self._refresh()
             return await self._request(path, params=params)
 
-    async def _gas_data(self, ident):
+    async def _usage_data(self, ident, service):
         today = date.today()
         try:
             start = today.replace(year=today.year - 1)
@@ -149,6 +150,11 @@ class BGEClient:
                 return None
         report = await optional('/api/reports/v1/cost-and-consumption', {
             'from': start.isoformat(), 'to': today.isoformat(), 'accountId': ident, 'accountType': 'QH'})
+        if service == 'electricity':
+            try:
+                return normalize_electricity(report, ident)
+            except ValueError:
+                return normalize_electricity(None, ident)
         meter = await optional('/api/meters/v1/config', {'accountId': ident})
         try:
             return normalize_gas(report, meter, ident)
@@ -195,6 +201,6 @@ class BGEClient:
                     if key in result:
                         raise PortalError('invalid_response')
                     result[key] = {**summarize(details, transactions), 'transactions_available': available}
-                    if details['account'].get('serviceType') == 'GS':
-                        result[key].update(await self._gas_data(ident))
+                    if details['account'].get('serviceType') in ('GS', 'EL'):
+                        result[key].update(await self._usage_data(ident, result[key]['service']))
                 return result

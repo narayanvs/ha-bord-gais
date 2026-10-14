@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.0-beta.10
+
+- Add electricity billed usage, period dates, billed cost and VAT sensors alongside gas usage.
+- Expose identifier-free billed history for both fuels; missing reports remain unknown, never zero or fabricated daily values.
+- Fetch optional electricity reports on the existing polling schedule, with one cache refresh on upgrade.
+- Electricity report parsing is tested against the shared portal schema; live account verification still requires a valid supplier session.
+
 ## 0.1.0-beta.9
 
 - Expose an admin-only manual gas meter-reading action in HA, with preview enabled by default and explicit confirmation required for real submissions.

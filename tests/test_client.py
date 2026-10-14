@@ -30,7 +30,7 @@ def transactions():return Response(data=[{'billId':'synthetic-bill','type':'Bill
 
 class Tests(unittest.IsolatedAsyncioTestCase):
     async def test_read_only_fetch_chunked_json(self):
-        http=HTTP([account_listing(),details(),transactions()]);data=await client.BGEClient(http,SESSION).fetch()
+        http=HTTP([account_listing(),details(),transactions(),Response(data={'items':[]})]);data=await client.BGEClient(http,SESSION).fetch()
         value=next(iter(data.values()))
         self.assertEqual(value['account_credit'],12.5);self.assertEqual(value['latest_bill_charge'],7.25)
         self.assertNotIn('synthetic-account',json.dumps(data));self.assertNotIn('synthetic-access',json.dumps(data))
@@ -38,7 +38,7 @@ class Tests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(method,'GET');self.assertFalse(kw['allow_redirects'])
             self.assertEqual(kw['headers']['AnonymousId'],'a'*32);self.assertTrue(kw['params']['cache'].isdigit())
     async def test_refresh_rotation_persisted_before_retry(self):
-        http=HTTP([Response(401),Response(data={'accessToken':'new-access','refreshToken':'new-refresh'}),account_listing(),details(),transactions()])
+        http=HTTP([Response(401),Response(data={'accessToken':'new-access','refreshToken':'new-refresh'}),account_listing(),details(),transactions(),Response(data={'items':[]})])
         async def save(session):
             self.assertEqual(len(http.calls),2)
             self.assertEqual(session['refreshToken'],'new-refresh')
@@ -48,13 +48,13 @@ class Tests(unittest.IsolatedAsyncioTestCase):
     async def test_expired_jwt_refreshes_before_first_read(self):
         payload = base64.urlsafe_b64encode(json.dumps({'exp': 1}).encode()).decode().rstrip('=')
         session = {**SESSION, 'accessToken': 'synthetic.' + payload + '.synthetic'}
-        http = HTTP([Response(data={'accessToken':'new-access','refreshToken':'new-refresh'}),account_listing(),details(),transactions()])
+        http = HTTP([Response(data={'accessToken':'new-access','refreshToken':'new-refresh'}),account_listing(),details(),transactions(),Response(data={'items':[]})])
         await client.BGEClient(http,session).fetch()
         self.assertEqual(http.calls[0][0],'POST')
         self.assertTrue(http.calls[0][1].endswith('/api/auth/refresh-token'))
 
     async def test_known_expired_identifier_response_refreshes_once(self):
-        http = HTTP([Response(400,data={'code':'BAD_REQUEST','message':'The request identifier is invalid or not provided.'}),Response(data={'accessToken':'new-access','refreshToken':'new-refresh'}),account_listing(),details(),transactions()])
+        http = HTTP([Response(400,data={'code':'BAD_REQUEST','message':'The request identifier is invalid or not provided.'}),Response(data={'accessToken':'new-access','refreshToken':'new-refresh'}),account_listing(),details(),transactions(),Response(data={'items':[]})])
         await client.BGEClient(http,SESSION).fetch()
         self.assertEqual(sum(method=='POST' for method,url,kw in http.calls),1)
 
@@ -71,7 +71,7 @@ class Tests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(client.AuthError):await client.BGEClient(http,SESSION).fetch()
         self.assertEqual(len(http.calls),2)
     async def test_optional_transaction_failure_preserves_balance(self):
-        http=HTTP([account_listing(),details(),Response(500)])
+        http=HTTP([account_listing(),details(),Response(500),Response(data={'items':[]})])
         value=next(iter((await client.BGEClient(http,SESSION).fetch()).values()))
         self.assertEqual(value['account_credit'],12.5);self.assertIsNone(value['latest_bill_charge']);self.assertFalse(value['transactions_available'])
     async def test_unexpected_pagination_rejected(self):

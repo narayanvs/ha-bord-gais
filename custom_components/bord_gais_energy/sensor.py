@@ -28,9 +28,17 @@ GAS_DESCRIPTIONS = (
     SensorEntityDescription(key='gas_last_actual_read_date', name='Last actual gas reading date', device_class=SensorDeviceClass.DATE),
 )
 
+ELECTRICITY_DESCRIPTIONS = (
+    SensorEntityDescription(key='electricity_latest_billed_usage_kwh', name='Latest billed electricity usage', native_unit_of_measurement='kWh', device_class=SensorDeviceClass.ENERGY),
+    SensorEntityDescription(key='electricity_bill_period_start', name='Electricity bill period start', device_class=SensorDeviceClass.DATE),
+    SensorEntityDescription(key='electricity_bill_period_end', name='Electricity bill period end', device_class=SensorDeviceClass.DATE),
+    SensorEntityDescription(key='electricity_latest_bill_cost', name='Electricity billed period cost', native_unit_of_measurement='EUR', device_class=SensorDeviceClass.MONETARY),
+    SensorEntityDescription(key='electricity_latest_bill_vat', name='Electricity billed period VAT', native_unit_of_measurement='EUR', device_class=SensorDeviceClass.MONETARY),
+)
+
 async def async_setup_entry(hass, entry, async_add_entities):
     coordinator = entry.runtime_data
-    async_add_entities(BGEAccountSensor(coordinator, key, description) for key in coordinator.data for description in (DESCRIPTIONS + GAS_DESCRIPTIONS if coordinator.data[key]['service'] == 'gas' else DESCRIPTIONS))
+    async_add_entities(BGEAccountSensor(coordinator, key, description) for key in coordinator.data for description in (DESCRIPTIONS + GAS_DESCRIPTIONS if coordinator.data[key]['service'] == 'gas' else DESCRIPTIONS + ELECTRICITY_DESCRIPTIONS if coordinator.data[key]['service'] == 'electricity' else DESCRIPTIONS))
 
 class BGEAccountSensor(CoordinatorEntity, SensorEntity):
     _attr_has_entity_name = True
@@ -61,10 +69,11 @@ class BGEAccountSensor(CoordinatorEntity, SensorEntity):
 
     @property
     def extra_state_attributes(self):
-        if self.entity_description.key == 'gas_latest_billed_usage_kwh':
+        if self.entity_description.key in ('gas_latest_billed_usage_kwh', 'electricity_latest_billed_usage_kwh'):
             data = self.coordinator.data.get(self.key, {})
-            return {'source': 'supplier_billed_periods', 'period_start': data.get('gas_bill_period_start'),
-                    'period_end': data.get('gas_bill_period_end'), 'billed_history': data.get('gas_usage_history', []),
+            fuel = self.entity_description.key.split('_', 1)[0]
+            return {'source': 'supplier_billed_periods', 'period_start': data.get(f'{fuel}_bill_period_start'),
+                    'period_end': data.get(f'{fuel}_bill_period_end'), 'billed_history': data.get(f'{fuel}_usage_history', []),
                     'daily_usage_available': False}
         if self.entity_description.key == 'gas_last_actual_reading':
             return {'source': 'supplier_last_actual_meter_read', 'register_unit': 'not_provided_by_supplier_api'}

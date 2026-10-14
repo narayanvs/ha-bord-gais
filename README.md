@@ -71,6 +71,14 @@ The meter endpoint supplies the register value but does not identify its physica
 
 Gas reports add two read-only requests per gas account on the existing account-update schedule. A missing/malformed gas response leaves usage unknown without inventing zero or discarding otherwise valid financial data. A supplier rate limit still stops the update. Upgrading an older cached gas account performs one new account-data update to populate these fields.
 
+### Electricity usage (beta.10)
+
+Electricity accounts expose **Latest billed electricity usage** (kWh), **Electricity bill period start/end**, **Electricity billed period cost** (including VAT) and **Electricity billed period VAT**. The usage sensor includes `period_start`, `period_end` and an identifier-free `billed_history` attribute, using the same billed-report schema as gas. Live electricity-account verification is pending a valid supplier session; unsupported or missing reports leave these values unknown.
+
+Both fuels provide bill-to-bill data for charts, usage comparisons and notifications when a new bill arrives. Compare complete periods, accounting for their length. These are delayed supplier totals, not live power, daily measurements or cumulative Energy dashboard counters. Keep inverter/ESB readings for current and half-hourly electricity monitoring. No tariff split or export quantity is inferred from an account balance.
+
+Electricity adds one optional read-only report request per account on the existing polling schedule. On upgrade, an older cached electricity snapshot is refreshed once to populate the new fields. Normal polling and refresh-token renewal timings are unchanged.
+
 ### Manual gas meter submissions (experimental, beta.9)
 
 In **Developer Tools → Actions** (or **Tools → Actions** on newer HA), select **Bord Gáis Energy: Submit gas meter reading** (`bord_gais_energy.submit_gas_meter_reading`). This action requires administrator access. Select the integration's **Last actual gas meter reading** sensor for the correct gas account and enter the whole reading from the physical meter—not billed kWh. Gas Networks Ireland says to ignore digits after the comma/decimal or in the red box: https://www.gasnetworks.ie/gas-meters/meter-reading .
