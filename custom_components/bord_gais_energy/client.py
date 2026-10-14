@@ -106,6 +106,12 @@ class BGEClient:
         if self.persist:
             await self.persist(dict(self.session))
 
+    async def renew_session(self):
+        """Rotate tokens without downloading account data; share the fetch lock."""
+        async with self.lock:
+            self.refreshed = False
+            await self._refresh()
+
     async def _read(self, path):
         if not self.refreshed and self._expires_soon():
             await self._refresh()

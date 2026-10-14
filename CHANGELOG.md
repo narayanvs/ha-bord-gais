@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.0-beta.7
+
+- Fix session expiry after browser sign-in: observed access tokens last five minutes and refresh tokens 15 minutes.
+- Renew the session before refresh-token expiry, independently of weekly account downloads; persist every rotated token immediately.
+- Stop renewal on authentication/rate-limit failures, bound transient retries, and cancel timers on unload.
+- Preserve captured session scheduling after cached restarts; request browser reauthentication if HA was offline beyond token expiry.
+- Move temporary browser certificate cleanup out of the HA event loop.
+- Gas-usage endpoints remain under investigation; this release does not add unverified usage sensors.
+
 ## 0.1.0-beta.6
 
 - Remove the unsuccessful experimental direct username/password option; keep browser sign-in and session JSON fallback.

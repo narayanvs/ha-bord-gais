@@ -69,11 +69,13 @@ The portal's `lastBill.amount` is a resulting balance, not necessarily the bill 
 
 ## Polling, cache and restarts
 
-Default polling is **weekly (168 hours)** because bills are monthly. Options allow 24–720 hours; **720** means every 30 days, not a calendar-month schedule. Payments and posted credits can change between bills, so the update timestamp matters.
+Default account-data polling is **weekly (168 hours)** because bills are monthly. Options allow 24–720 hours; **720** means every 30 days, not a calendar-month schedule. Payments and posted credits can change between bills, so the update timestamp matters.
+
+**Session renewal is separate from bill downloads.** Observed access tokens expire after about five minutes and refresh tokens after 15 minutes. Beta.7 schedules a lightweight token-renewal request before the refresh token expires (normally about every ten minutes), persisting rotated tokens immediately. It does not download account/bill data each time. Authentication or rate-limit rejection stops renewal and requests reauthentication; transient failures get only bounded retries. If HA is offline past refresh-token expiry, a new browser sign-in is needed. Indefinite unattended renewal has not yet been proved.
 
 HA reloads/restarts reuse the cached account data until the next update is due. Cached data retains its original timestamp. Expired tokens are refreshed once; rotated tokens are persisted immediately. A rejected session triggers HA reauthentication. Network failures leave entities unavailable rather than showing invented zero balances. Manual refresh is limited to one attempt every five minutes; rate limiting delays automatic retries.
 
-All updates are asynchronous and normally involve one account-list request plus two reads per account. No PDFs or CSVs accumulate. Only the latest normalized snapshot is cached; recorder history follows your HA settings.
+All requests are asynchronous. Account-data updates normally involve one account-list request plus two reads per account; session renewal is one additional small request on its separate timer. No PDFs or CSVs accumulate. Only the latest normalized snapshot is cached; recorder history follows your HA settings.
 
 ## Development
 

@@ -131,8 +131,8 @@ class BrowserLogin:
         self.cookie = ''
         self.start_token = ''
         if self.certificate:
-            self.certificate.cleanup()
-            self.certificate = None
+            certificate, self.certificate = self.certificate, None
+            await asyncio.to_thread(certificate.cleanup)
         if self.on_close:
             self.on_close()
             self.on_close = None

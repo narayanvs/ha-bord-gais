@@ -4,10 +4,12 @@ import logging
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.storage import Store
+from homeassistant.helpers.event import async_call_later
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 from .client import AuthError, BGEClient, PortalError
 from .const import DOMAIN, DEFAULT_POLL_HOURS
+from .session_timing import renewal_delay
 _LOGGER = logging.getLogger(__name__)
 
 class BGECoordinator(DataUpdateCoordinator):
@@ -16,13 +18,20 @@ class BGECoordinator(DataUpdateCoordinator):
         self.poll_hours = entry.options.get('poll_hours', DEFAULT_POLL_HOURS)
         self.last_success = None
         self.last_attempt = None
+        self._cancel_renewal = None
+        self._renewal_failures = 0
+        self._session_auth_failed = False
+        self._session_closed = False
         self.store = Store(hass, 1, DOMAIN + '.' + entry.entry_id)
         self.client = BGEClient(async_get_clientsession(hass), entry.data['session'], self.persist_session)
         super().__init__(hass, _LOGGER, name='Bord Gáis Energy Account', config_entry=entry,
                          update_interval=timedelta(hours=self.poll_hours), always_update=False)
+        entry.async_on_unload(self.shutdown_session)
 
     async def persist_session(self, session):
         self.hass.config_entries.async_update_entry(self.entry, data={**self.entry.data, 'session': session})
+        self._renewal_failures = 0
+        self.schedule_renewal()
 
     async def async_initialize(self):
         cached = self.hass.data.get(DOMAIN, {}).pop(self.entry.unique_id, None)
@@ -38,8 +47,59 @@ class BGECoordinator(DataUpdateCoordinator):
                 if timedelta(0) <= age < timedelta(hours=self.poll_hours):
                     self.update_interval = timedelta(hours=self.poll_hours) - age
                     self.async_set_updated_data(cached['accounts'])
+                    self.schedule_renewal()
                     return
         await self.async_config_entry_first_refresh()
+        self.schedule_renewal()
+
+    def cancel_renewal(self):
+        if self._cancel_renewal:
+            self._cancel_renewal()
+            self._cancel_renewal = None
+
+    def shutdown_session(self):
+        self._session_closed = True
+        self.cancel_renewal()
+
+    def request_reauth(self):
+        if self._session_closed:
+            return
+        self.cancel_renewal()
+        if not self._session_auth_failed:
+            self._session_auth_failed = True
+            _LOGGER.warning('Supplier session renewal requires browser reauthentication')
+            self.entry.async_start_reauth(self.hass)
+
+    def schedule_renewal(self, retry_delay=None):
+        self.cancel_renewal()
+        if self._session_auth_failed or self._session_closed:
+            return
+        delay = renewal_delay(self.client.session)
+        if delay <= 0:
+            self.request_reauth()
+            return
+        if retry_delay is not None:
+            delay = min(delay, retry_delay)
+        self._cancel_renewal = async_call_later(self.hass, delay, self._renew_session)
+
+    async def _renew_session(self, _now):
+        self._cancel_renewal = None
+        if self._session_closed:
+            return
+        try:
+            await self.client.renew_session()
+        except AuthError:
+            self.request_reauth()
+        except PortalError as exc:
+            self._renewal_failures += 1
+            if str(exc) == 'rate_limited' or self._renewal_failures >= 3:
+                # A long cooldown outlives the short refresh token. Stop; never hammer login.
+                self.request_reauth()
+            else:
+                self.schedule_renewal(retry_delay=30 * 2 ** (self._renewal_failures - 1))
+        else:
+            self._renewal_failures = 0
+            self.schedule_renewal()
 
     async def _async_update_data(self):
         now = dt_util.utcnow()
@@ -51,6 +111,8 @@ class BGECoordinator(DataUpdateCoordinator):
         try:
             result = await self.client.fetch()
         except AuthError:
+            self.cancel_renewal()
+            self._session_auth_failed = True
             raise ConfigEntryAuthFailed('Sign in again and supply a fresh browser session') from None
         except PortalError as exc:
             if str(exc) == 'rate_limited':
