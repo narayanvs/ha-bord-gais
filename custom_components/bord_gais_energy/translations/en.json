@@ -1,0 +1,43 @@
+{
+  "title": "Bord Gáis Energy Account",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect your Bord Gáis account",
+        "description": "Sign in on the Bord Gáis website, then privately paste the session JSON described in the README. Username/password-only login is not supported in this beta. Session tokens are stored by Home Assistant, never in the public repository.",
+        "data": {
+          "session_json": "Browser session JSON"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Renew your Bord Gáis session",
+        "description": "Sign in again in your browser and paste fresh session JSON for the same accounts.",
+        "data": {
+          "session_json": "Browser session JSON"
+        }
+      }
+    },
+    "error": {
+      "invalid_session": "Paste valid session JSON containing accessToken, refreshToken and anonymousId.",
+      "invalid_auth": "Session expired or rejected. Sign in again and copy a fresh session.",
+      "cannot_connect": "Could not retrieve account data. Try later.",
+      "rate_limited": "The supplier is limiting requests. Wait before trying again."
+    },
+    "abort": {
+      "already_configured": "These accounts are already configured.",
+      "wrong_account": "The session belongs to a different set of accounts. Add it as a separate integration.",
+      "reauth_successful": "Session updated."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Update frequency",
+        "description": "168 hours is weekly; 720 hours is every 30 days. Manual refresh remains available.",
+        "data": {
+          "poll_hours": "Hours between supplier updates"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,14 @@
+.private/
+.env
+.venv/
+__pycache__/
+*.pyc
+*.csv
+*.pdf
+*.har
+*.log
+session.json
+accounts.json
+account-*.json
+transactions-*.json
+summary.json
