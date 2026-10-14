@@ -1,9 +1,11 @@
 """Browser-session setup and reauthentication without logging credentials."""
 import asyncio
 import hashlib
+import ipaddress
 import json
 import voluptuous as vol
 from homeassistant import config_entries
+from homeassistant.components import network
 from homeassistant.const import EVENT_HOMEASSISTANT_STOP
 from homeassistant.core import callback
 from homeassistant.helpers import selector
@@ -12,7 +14,6 @@ from urllib.parse import urlsplit
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.util import dt as dt_util
 from .client import AuthError, BGEClient, PortalError, parse_session
-from .auth import password_login
 from .login_budget import budget
 from .const import DOMAIN, NAME, DEFAULT_POLL_HOURS
 
@@ -25,26 +26,16 @@ def session_schema():
 class BGEConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
 
-    async def validate(self, data, method):
+    async def validate(self, data):
         http = async_get_clientsession(self.hass)
-        if method == 'password':
-            session = await password_login(http, data['username'], data['password'], budget(self.hass).reserve)
-        else:
-            session = parse_session(data['session_json'])
+        session = parse_session(data['session_json'])
         client = BGEClient(http, session)
         accounts = await client.fetch()
         identity = hashlib.sha256(json.dumps(sorted(accounts)).encode()).hexdigest()
         return client.session, accounts, identity
 
     async def async_step_user(self, user_input=None):
-        return self.async_show_menu(step_id='user', menu_options=['browser', 'password', 'session'])
-
-    async def async_step_password(self, user_input=None):
-        schema = vol.Schema({
-            vol.Required('username'): str,
-            vol.Required('password'): selector.TextSelector(selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD)),
-        })
-        return await self._authenticate('password', schema, user_input)
+        return self.async_show_menu(step_id='user', menu_options=['browser', 'session'])
 
     async def async_step_session(self, user_input=None):
         return await self._authenticate('session', session_schema(), user_input)
@@ -53,7 +44,7 @@ class BGEConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors = {}
         if user_input is not None:
             try:
-                session, accounts, identity = await self.validate(user_input, method)
+                session, accounts, identity = await self.validate(user_input)
             except AuthError:
                 errors['base'] = 'invalid_auth'
             except PortalError as exc:
@@ -84,6 +75,18 @@ class BGEConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_browser(self, user_input=None):
         from .browser_proxy import BrowserLogin
         errors = {}
+        detected_host = ''
+        if user_input is None:
+            try:
+                candidate = await network.async_get_source_ip(self.hass)
+                address = ipaddress.ip_address(candidate)
+                if address.version == 4 and address.is_private and not (
+                        address.is_loopback or address.is_unspecified or address.is_multicast):
+                    detected_host = str(address)
+            except Exception:
+                pass
+            if detected_host and not self.context.get('show_advanced_options'):
+                user_input = {'local_host': detected_host}
         if user_input is not None:
             previous = self.hass.data.get(DOMAIN + '_browser')
             if previous and previous.runner:
@@ -118,7 +121,7 @@ class BGEConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     self.hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STOP, lambda event: self.hass.async_create_task(self._browser.close()))
                     return self.async_external_step(step_id='browser_wait', url=link)
         try:
-            default = urlsplit(get_url(self.hass, prefer_external=False)).hostname or ''
+            default = detected_host or urlsplit(get_url(self.hass, prefer_external=False)).hostname or ''
         except Exception:
             default = ''
         return self.async_show_form(step_id='browser', data_schema=vol.Schema({
@@ -149,7 +152,7 @@ class BGEConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return await self.async_step_reauth_confirm()
 
     async def async_step_reauth_confirm(self, user_input=None):
-        return self.async_show_menu(step_id='reauth_confirm', menu_options=['browser', 'password', 'session'])
+        return self.async_show_menu(step_id='reauth_confirm', menu_options=['browser', 'session'])
 
     @staticmethod
     @callback

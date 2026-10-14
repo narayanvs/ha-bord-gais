@@ -6,13 +6,13 @@ An unofficial, read-only supplier-account integration for Home Assistant. It rep
 
 ## Authentication
 
-**Beta.4 adds browser sign-in**, verified with a real electricity/gas account. HA opens a separate browser tab/window containing the normal supplier sign-in page. You complete CAPTCHA normally; the integration captures and validates the resulting renewable session without JSON copying. After successful setup the tab tries to close automatically. Browser restrictions can prevent closing; a clear completion message and Close tab button remain available. Whether a browser opens a tab or window is controlled by its settings. Session refresh remains automatic; rejected refresh requests trigger reauthentication with the same sign-in choices.
+**Browser sign-in**, verified with a real electricity/gas account. HA opens a separate browser tab/window containing the normal supplier sign-in page. You complete CAPTCHA normally; the integration captures and validates the resulting renewable session without JSON copying. After successful setup the tab tries to close automatically. Browser restrictions can prevent closing; a clear completion message and Close tab button remain available. Whether a browser opens a tab or window is controlled by its settings. Session refresh remains automatic; rejected refresh requests trigger reauthentication with the same sign-in choices.
 
 **Local-network beta limitation:** browser sign-in temporarily serves HTTPS on Home Assistant's private IPv4 address, port **8743**. Use the same LAN/Wi-Fi as HA and allow that port locally. A temporary self-signed certificate means accepting a warning for that specific local address. No certificate installation, external container or browser extension is needed. Do not expose or forward this port through your router, tunnel or public reverse proxy. Remote-only users can use the browser-session fallback below. Supplier JavaScript runs on a separate browser origin, not on the HA frontend origin.
 
 The initial link is random and single-use. The listener requires a Secure/HttpOnly cookie and validates POST origins, forwards only login and sign-in asset requests, and expires after 15 minutes (or shortly after completion). The TLS key and certificate are generated temporarily and removed on normal cleanup; an abrupt container crash can leave a small temporary directory for the OS to clean. Passwords are forwarded in memory, never saved. Supplier session keys use tab-scoped browser storage and are cleared on the completion page. HA retains the renewable session using its existing config-entry storage.
 
-Experimental direct username/password setup remains available, but it does not supply CAPTCHA and can be rejected. The browser-session JSON option is a fallback when local browser sign-in is unavailable. OTP flows use the supplier page but have not been verified with a real OTP-enabled account.
+Beta.6 removes experimental direct username/password setup, which was rejected by the supplier. Choose browser sign-in normally; browser-session JSON remains a fallback when local browser sign-in is unavailable. OTP flows use the supplier page but have not been verified with a real OTP-enabled account.
 
 No credentials, real account identifiers, customer files or financial snapshots belong in this repository. Sessions are stored in HA's config-entry storage and normalized financial data in its local cache. They are **not encrypted by this integration**; protect HA's config directory and backups as you would other integration credentials. Downloadable integration diagnostics exclude tokens, identifiers, addresses and financial figures.
 
@@ -21,7 +21,7 @@ No credentials, real account identifiers, customer files or financial snapshots 
 1. HACS → Custom repositories → add this repository as **Integration**.
 2. Download **Bord Gáis Energy Account** and restart HA. Enable beta versions in HACS to select this prerelease.
 3. Settings → Devices & Services → Add integration → **Bord Gáis Energy Account**.
-4. Choose **Sign in with browser (local network beta)** and enter HA's private LAN IPv4 address.
+4. Choose **Sign in with browser (local network beta)**. HA detects its local IPv4 address automatically. A manual address form appears only if detection fails or advanced setup is selected.
 5. In the separate browser window, accept the certificate exception for that local address and log in normally. Allow HA's popup if the browser blocks it. Setup finishes automatically and the tab attempts to close after success. No token copying is required.
 
 For an existing connection, updating the integration does not force a new login. HA offers reauthentication when its saved session cannot renew; choose browser sign-in there. Adding the same accounts again will report that they are already configured.
@@ -99,16 +99,8 @@ Create the public `ha-bord-gais` repository, then push `main`. Add GitHub topics
 
 MIT. This integration was written independently from observations of the public portal frontend and verified private responses; no supplier frontend bundles, customer files or existing ESB integration code are distributed.
 
-## Password-login debugging
+## Sign-in diagnostics and certificate warnings
 
-Failed password login logs a warning containing only stage, HTTP status and a fixed category. It does not log the username, password, API key, anonymous ID, headers, request/response bodies or tokens. Browser sign-in logs only fixed outcome/status categories. A generic 400/401/403 rejection alone does not prove CAPTCHA is mandatory. No CAPTCHA token is fabricated or challenge bypass attempted. OTP-enabled accounts have not yet been verified with the browser proxy; use browser-session fallback if needed.
+Browser sign-in logs fixed outcome/status categories, never passwords, tokens, account identifiers or request bodies. Do not enable global HTTP/aiohttp debug logging while authenticating. Login attempts are limited to three per username per 15 minutes and at least 60 seconds apart; only hashed usernames and timestamps are saved for this protective budget.
 
-For extra local stage logs, call HA action `logger.set_level` with:
-
-```yaml
-custom_components.bord_gais_energy.auth: debug
-```
-
-Only enable this integration logger; enabling global HTTP or aiohttp debug logging can reveal credentials outside this integration's logging controls. Remove debug logging after testing.
-
-Login attempts are limited to three per username in 15 minutes, at least 60 seconds apart, shared across setup flows and persisted through restarts. The budget stores only a hash and timestamps, never the username or password. These are local protective limits, not a claim about the supplier's lockout policy.
+Automatic IP detection removes the normal address-entry step, but cannot make a self-signed certificate trusted. Removing the warning needs either a certificate trusted on every client, or a dedicated login hostname served with a trusted certificate (for example through a locally accessible reverse proxy). Keep that hostname separate from the HA frontend to isolate supplier scripts. A trusted-hostname proxy mode is not implemented in this beta; do not forward the current listener publicly or assume a hostname alone fixes its certificate.

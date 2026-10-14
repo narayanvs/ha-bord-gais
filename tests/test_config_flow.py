@@ -31,6 +31,8 @@ def module(name,**values):
 mods={
  'homeassistant':module('homeassistant'),
  'homeassistant.config_entries':module('config_entries',ConfigFlow=Flow,OptionsFlow=Flow,SOURCE_REAUTH='reauth'),
+ 'homeassistant.components':module('components'),
+ 'homeassistant.components.network':module('network',async_get_source_ip=AsyncMock(return_value='192.168.1.2')),
  'homeassistant.const':module('const',EVENT_HOMEASSISTANT_STOP='stop'),
  'homeassistant.core':module('core',callback=lambda f:f),
  'homeassistant.helpers':module('helpers'),
@@ -74,6 +76,24 @@ class Tests(unittest.IsolatedAsyncioTestCase):
   self.assertEqual(f.hass.data,{'keep':'unchanged'})
  async def test_expired_browser_aborts(self):
   self.assertEqual((await self.flow().async_step_browser_wait())['reason'],'browser_expired')
+ async def test_only_browser_and_session_choices(self):
+  f=self.flow()
+  self.assertEqual((await f.async_step_user())['menu_options'],['browser','session'])
+  self.assertEqual((await f.async_step_reauth_confirm())['menu_options'],['browser','session'])
+ async def test_network_detection_failure_keeps_manual_form(self):
+  f=self.flow()
+  with patch.object(config.network,'async_get_source_ip',AsyncMock(side_effect=OSError())):
+   result=await f.async_step_browser()
+  self.assertEqual(result['type'],'form')
+ async def test_auto_detection_opens_browser_without_ip_form(self):
+  f=self.flow();f.hass.bus=types.SimpleNamespace(async_listen_once=lambda *args:None)
+  class Browser:
+   def __init__(self,host,*args):self.host=host;self.runner=object()
+   async def start(self):return 'https://'+self.host+':8743/start/synthetic'
+  with patch.object(browser,'BrowserLogin',Browser),patch.object(config,'budget',return_value=types.SimpleNamespace(reserve=AsyncMock())):
+   result=await f.async_step_browser()
+  self.assertEqual(result['type'],'external')
+  self.assertEqual(f._browser.host,'192.168.1.2')
  async def test_frontend_finishes_once_without_backend_consuming_flow(self):
   f=self.flow();tasks=[];results=[];step='wait'
   def task(coro):

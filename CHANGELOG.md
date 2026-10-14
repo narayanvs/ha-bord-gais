@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.0-beta.6
+
+- Remove the unsuccessful experimental direct username/password option; keep browser sign-in and session JSON fallback.
+- Automatically detect the local IPv4 address through HA networking for browser sign-in, avoiding the normal manual IP step.
+- Retain manual entry when detection fails or advanced setup is selected.
+- The temporary self-signed certificate warning still applies; trusted-hostname deployment remains a separate future improvement.
+
 ## 0.1.0-beta.5
 
 - Fix the browser sign-in completion race that could report invalid flow after successful supplier authentication.

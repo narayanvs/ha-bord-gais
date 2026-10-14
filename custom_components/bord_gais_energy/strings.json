@@ -6,7 +6,6 @@
         "title": "Connect your Bord Gáis account",
         "menu_options": {
           "browser": "Sign in with browser (local network beta)",
-          "password": "Username and password (experimental)",
           "session": "Browser session (verified fallback)"
         }
       },
@@ -14,16 +13,7 @@
         "title": "Renew your Bord Gáis authentication",
         "menu_options": {
           "browser": "Sign in with browser (local network beta)",
-          "password": "Username and password (experimental)",
           "session": "Browser session (verified fallback)"
-        }
-      },
-      "password": {
-        "title": "Sign in with username and password",
-        "description": "Experimental: submits one login request without a CAPTCHA token. If the supplier rejects it, local logs record only status and error category. Credentials are discarded after login; renewable session tokens are saved. No automatic password retries.",
-        "data": {
-          "username": "Username / email",
-          "password": "Password"
         }
       },
       "session": {
@@ -35,7 +25,7 @@
       },
       "browser": {
         "title": "Sign in through your browser",
-        "description": "Use your home network and enter Home Assistant's private IPv4 address. A temporary HTTPS login window opens on port 8743. Accept the LOCAL certificate warning for this address only, then sign in normally. The integration saves a renewable session, never your password. No JSON copying or extra container is needed. Do not expose this port to the internet.",
+        "description": "Home Assistant normally detects its local address automatically. Enter its private IPv4 address here only if detection failed, or advanced setup is enabled. Use your home network. The temporary HTTPS login window uses port 8743 and a self-signed certificate; accept the warning for this local address only. The integration saves a renewable session, never your password. Do not expose this port to the internet.",
         "data": {
           "local_host": "Home Assistant private LAN IPv4 address"
         }
@@ -53,9 +43,6 @@
       "login_cooldown": "Please wait: at least 60 seconds between attempts and at most three attempts per 15 minutes.",
       "browser_verification_required": "The supplier requested browser verification. Choose Sign in with browser, or use the browser-session fallback.",
       "otp_required": "The supplier requested an OTP. OTP entry is not supported in this beta; use browser session setup.",
-      "password_change_required": "The supplier requires a password change. Complete it on their website.",
-      "login_rejected": "The supplier rejected this login. This may require browser verification; check the safe local status log.",
-      "login_page_changed": "Could not read the public login configuration. Check the local logs and use browser session setup.",
       "browser_running": "A browser sign-in is already active. Finish it or wait for its 15-minute expiry.",
       "browser_cannot_start": "Could not start HTTPS browser sign-in. Check the private LAN IPv4 address and whether port 8743 is already in use."
     },

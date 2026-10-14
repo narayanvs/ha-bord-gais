@@ -1,14 +1,17 @@
 {
-  "domain": "bord_gais_energy",
-  "name": "Bord G\u00e1is Energy Account",
   "codeowners": [
     "@narayanvs"
   ],
   "config_flow": true,
+  "dependencies": [
+    "network"
+  ],
   "documentation": "https://github.com/narayanvs/ha-bord-gais",
+  "domain": "bord_gais_energy",
   "integration_type": "service",
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/narayanvs/ha-bord-gais/issues",
+  "name": "Bord Gáis Energy Account",
   "requirements": [],
-  "version": "0.1.0-beta.5"
+  "version": "0.1.0-beta.6"
 }
