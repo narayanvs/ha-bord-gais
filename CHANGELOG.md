@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.0-beta.2
+
+- Add local integration icons required by HACS brand validation.
+- Publish releases automatically from version updates on main after all checks pass.
+- Validate release version and extract version-specific release notes before publishing.
+- Mark the integration as Ireland-specific in HACS metadata.
+
 ## 0.1.0-beta.1
 
 - Initial read-only supplier-account integration.

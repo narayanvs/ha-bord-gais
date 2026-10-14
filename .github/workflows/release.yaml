@@ -1,17 +1,42 @@
 name: Release
 on:
   push:
+    branches: [main]
     tags: ["v*"]
+    paths:
+      - custom_components/bord_gais_energy/manifest.json
+      - CHANGELOG.md
+      - .github/workflows/release.yaml
+      - .github/scripts/release_metadata.py
+  workflow_dispatch:
 permissions:
   contents: read
 concurrency:
-  group: release-${{ github.ref }}
+  group: bge-release
   cancel-in-progress: false
 jobs:
+  metadata:
+    runs-on: ubuntu-24.04
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+      version: ${{ steps.release.outputs.version }}
+      prerelease: ${{ steps.release.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - id: release
+        name: Validate version and release notes
+        env:
+          RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+          NOTES_FILE: ${{ runner.temp }}/release-notes.md
+        run: python .github/scripts/release_metadata.py
   checks:
+    needs: metadata
     uses: ./.github/workflows/checks.yaml
   publish:
-    needs: checks
+    needs: [metadata, checks]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -20,16 +45,23 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.13"
-      - name: Validate version and publish prerelease
+      - name: Publish validated release
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_TAG: ${{ needs.metadata.outputs.tag }}
+          PRERELEASE: ${{ needs.metadata.outputs.prerelease }}
+          NOTES_FILE: ${{ runner.temp }}/release-notes.md
+        shell: bash
         run: |
-          python - <<'PY'
-          import json, os
-          version=json.load(open('custom_components/bord_gais_energy/manifest.json'))['version']
-          assert os.environ['RELEASE_TAG'] == 'v'+version, 'Tag does not match manifest'
-          assert version in open('CHANGELOG.md').read(), 'Missing release notes'
-          PY
-          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then exit 0; fi
-          gh release create "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --verify-tag --title "Bord Gáis Energy Account $RELEASE_TAG" --notes-file CHANGELOG.md --prerelease --latest=false
+          set -euo pipefail
+          python .github/scripts/release_metadata.py
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release already exists; leaving it unchanged."
+            exit 0
+          fi
+          args=("$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA"
+                --title "Bord Gáis Energy Account $RELEASE_TAG" --notes-file "$NOTES_FILE")
+          if [[ "$PRERELEASE" == "true" ]]; then
+            args+=(--prerelease --latest=false)
+          fi
+          gh release create "${args[@]}"

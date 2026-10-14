@@ -1,5 +1,6 @@
 {
   "name": "Bord G\u00e1is Energy Account",
   "homeassistant": "2026.10.0",
-  "render_readme": true
+  "render_readme": true,
+  "country": "IE"
 }

@@ -12,3 +12,4 @@ accounts.json
 account-*.json
 transactions-*.json
 summary.json
+release-notes.md

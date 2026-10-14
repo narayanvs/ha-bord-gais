@@ -81,7 +81,7 @@ Private portal endpoints may change without notice. A successful refresh today d
 
 ## Publishing this repository
 
-Create the public `ha-bord-gais` repository, then push `main`. Add GitHub topics `home-assistant`, `hacs`, `custom-integration`, `bord-gais` and `ireland` so HACS repository checks pass. Review the Checks workflow results before tagging `v0.1.0-beta.1`; the tag triggers validation and a GitHub prerelease. Enable beta versions in HACS to select it. Being installable as a HACS custom repository does not mean inclusion in the default HACS catalogue.
+Create the public `ha-bord-gais` repository, then push `main`. Add GitHub topics `home-assistant`, `hacs`, `custom-integration`, `bord-gais` and `ireland` so HACS repository checks pass. Version updates pushed to `main` automatically run validation and publish a matching release. Beta/alpha/rc versions become prereleases; stable versions become normal releases. Bump the manifest version and add matching changelog notes for each release; no manual tag is needed. The Release workflow can also be rerun manually after fixing repository metadata. Existing releases are left unchanged. Enable beta versions in HACS to select it. Being installable as a HACS custom repository does not mean inclusion in the default HACS catalogue.
 
 ## Licence
 
