@@ -1,10 +1,14 @@
 """Browser-session setup and reauthentication without logging credentials."""
+import asyncio
 import hashlib
 import json
 import voluptuous as vol
 from homeassistant import config_entries
+from homeassistant.const import EVENT_HOMEASSISTANT_STOP
 from homeassistant.core import callback
 from homeassistant.helpers import selector
+from homeassistant.helpers.network import get_url
+from urllib.parse import urlsplit
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.util import dt as dt_util
 from .client import AuthError, BGEClient, PortalError, parse_session
@@ -33,7 +37,7 @@ class BGEConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return client.session, accounts, identity
 
     async def async_step_user(self, user_input=None):
-        return self.async_show_menu(step_id='user', menu_options=['password', 'session'])
+        return self.async_show_menu(step_id='user', menu_options=['browser', 'password', 'session'])
 
     async def async_step_password(self, user_input=None):
         schema = vol.Schema({
@@ -59,25 +63,98 @@ class BGEConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             except TimeoutError:
                 errors['base'] = 'cannot_connect'
             else:
-                self.hass.data.setdefault(DOMAIN, {})[identity] = {'retrieved_at': dt_util.utcnow().isoformat(), 'accounts': accounts}
-                data = {'session': session, 'account_keys': sorted(accounts), 'auth_method': method}
-                # Username/password are discarded after login; only renewable session tokens persist.
-                if self.context.get('source') == config_entries.SOURCE_REAUTH:
-                    entry = self._get_reauth_entry()
-                    if identity != entry.unique_id:
-                        self.hass.data[DOMAIN].pop(identity, None)
-                        return self.async_abort(reason='wrong_account')
-                    return self.async_update_reload_and_abort(entry, data_updates=data)
-                await self.async_set_unique_id(identity)
-                self._abort_if_unique_id_configured()
-                return self.async_create_entry(title=NAME, data=data)
+                return await self.finish_auth(session, accounts, identity, method)
         return self.async_show_form(step_id=method, data_schema=schema, errors=errors)
+
+    async def finish_auth(self, session, accounts, identity, method):
+        data = {'session': session, 'account_keys': sorted(accounts), 'auth_method': method}
+        if self.context.get('source') == config_entries.SOURCE_REAUTH:
+            entry = self._get_reauth_entry()
+            if identity != entry.unique_id:
+                return self.async_abort(reason='wrong_account')
+            self.hass.data.setdefault(DOMAIN, {})[identity] = {
+                'retrieved_at': dt_util.utcnow().isoformat(), 'accounts': accounts}
+            return self.async_update_reload_and_abort(entry, data_updates=data)
+        await self.async_set_unique_id(identity)
+        self._abort_if_unique_id_configured()
+        self.hass.data.setdefault(DOMAIN, {})[identity] = {
+            'retrieved_at': dt_util.utcnow().isoformat(), 'accounts': accounts}
+        return self.async_create_entry(title=NAME, data=data)
+
+    async def async_step_browser(self, user_input=None):
+        from .browser_proxy import BrowserLogin
+        errors = {}
+        if user_input is not None:
+            previous = self.hass.data.get(DOMAIN + '_browser')
+            if previous and previous.runner:
+                errors['base'] = 'browser_running'
+            else:
+                async def capture(session):
+                    client = BGEClient(async_get_clientsession(self.hass), session)
+                    accounts = await client.fetch()
+                    identity = hashlib.sha256(json.dumps(sorted(accounts)).encode()).hexdigest()
+                    self._browser_auth = (client.session, accounts, identity)
+                    self._browser_finish_result = None
+                    async def advance():
+                        # Let the HTTP handler finish capturing before completing the HA flow.
+                        await asyncio.sleep(0)
+                        try:
+                            result = await self.hass.config_entries.flow.async_configure(self.flow_id, {'complete': True})
+                            if result.get('type') == 'external_done':
+                                result = self._browser_finish_result or await self.hass.config_entries.flow.async_configure(self.flow_id)
+                            if result.get('type') == 'abort':
+                                reason = result.get('reason')
+                                self._browser.result['state'] = reason if reason in ('already_configured', 'wrong_account', 'reauth_successful') else 'setup_closed'
+                        except Exception:
+                            # The frontend may have completed the same external flow first.
+                            finished = getattr(self, '_browser_finish_result', None)
+                            if not finished:
+                                self._browser.result['state'] = 'setup_closed'
+                            elif finished.get('reason') in ('wrong_account', 'already_configured', 'reauth_successful'):
+                                self._browser.result['state'] = finished['reason']
+                        finally:
+                            self._browser_auth = None
+                            asyncio.get_running_loop().call_later(30, lambda: self.hass.async_create_task(self._browser.close()))
+                    self.hass.async_create_task(advance())
+                    return {'account_count': len(accounts)}
+                try:
+                    self._browser = BrowserLogin(user_input['local_host'], capture, budget(self.hass).reserve)
+                    link = await self._browser.start()
+                except (OSError, ValueError):
+                    errors['base'] = 'browser_cannot_start'
+                else:
+                    self.hass.data[DOMAIN + '_browser'] = self._browser
+                    self.hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STOP, lambda event: self.hass.async_create_task(self._browser.close()))
+                    return self.async_external_step(step_id='browser_wait', url=link)
+        try:
+            default = urlsplit(get_url(self.hass, prefer_external=False)).hostname or ''
+        except Exception:
+            default = ''
+        return self.async_show_form(step_id='browser', data_schema=vol.Schema({
+            vol.Required('local_host', default=default): str,
+        }), errors=errors)
+
+    async def async_step_browser_wait(self, user_input=None):
+        if getattr(self, '_browser_auth', None):
+            return self.async_external_step_done(next_step_id='browser_finish')
+        return self.async_abort(reason='browser_expired')
+
+    async def async_step_browser_finish(self, user_input=None):
+        captured = getattr(self, '_browser_auth', None)
+        if not captured:
+            return self.async_abort(reason='browser_expired')
+        try:
+            result = await self.finish_auth(*captured, 'browser')
+            self._browser_finish_result = result
+            return result
+        finally:
+            self._browser_auth = None
 
     async def async_step_reauth(self, entry_data):
         return await self.async_step_reauth_confirm()
 
     async def async_step_reauth_confirm(self, user_input=None):
-        return self.async_show_menu(step_id='reauth_confirm', menu_options=['password', 'session'])
+        return self.async_show_menu(step_id='reauth_confirm', menu_options=['browser', 'password', 'session'])
 
     @staticmethod
     @callback

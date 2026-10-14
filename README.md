@@ -6,20 +6,31 @@ An unofficial, read-only supplier-account integration for Home Assistant. It rep
 
 ## Authentication
 
-**Beta.3 adds experimental username/password setup.** Choose that option in Devices & Services to submit one login request without a CAPTCHA token. This is a test path: password-only authentication has not yet been verified against a real account. If the portal requires CAPTCHA or OTP, use the verified **Browser session** fallback. The integration attempts session-token refresh automatically; if renewal fails, HA requests reauthentication. Your username and password are used only for the login request and are not saved in the config entry.
+**Beta.4 adds browser sign-in**, verified with a real electricity/gas account. HA opens a separate browser tab/window containing the normal supplier sign-in page. You complete CAPTCHA normally; the integration captures and validates the resulting renewable session without JSON copying. After successful setup the tab tries to close automatically. Browser restrictions can prevent closing; a clear completion message and Close tab button remain available. Whether a browser opens a tab or window is controlled by its settings. Session refresh remains automatic; rejected refresh requests trigger reauthentication with the same sign-in choices.
+
+**Local-network beta limitation:** browser sign-in temporarily serves HTTPS on Home Assistant's private IPv4 address, port **8743**. Use the same LAN/Wi-Fi as HA and allow that port locally. A temporary self-signed certificate means accepting a warning for that specific local address. No certificate installation, external container or browser extension is needed. Do not expose or forward this port through your router, tunnel or public reverse proxy. Remote-only users can use the browser-session fallback below. Supplier JavaScript runs on a separate browser origin, not on the HA frontend origin.
+
+The initial link is random and single-use. The listener requires a Secure/HttpOnly cookie and validates POST origins, forwards only login and sign-in asset requests, and expires after 15 minutes (or shortly after completion). The TLS key and certificate are generated temporarily and removed on normal cleanup; an abrupt container crash can leave a small temporary directory for the OS to clean. Passwords are forwarded in memory, never saved. Supplier session keys use tab-scoped browser storage and are cleared on the completion page. HA retains the renewable session using its existing config-entry storage.
+
+Experimental direct username/password setup remains available, but it does not supply CAPTCHA and can be rejected. The browser-session JSON option is a fallback when local browser sign-in is unavailable. OTP flows use the supplier page but have not been verified with a real OTP-enabled account.
 
 No credentials, real account identifiers, customer files or financial snapshots belong in this repository. Sessions are stored in HA's config-entry storage and normalized financial data in its local cache. They are **not encrypted by this integration**; protect HA's config directory and backups as you would other integration credentials. Downloadable integration diagnostics exclude tokens, identifiers, addresses and financial figures.
 
 ## Install with HACS
 
-Once this repository is published:
-
 1. HACS → Custom repositories → add this repository as **Integration**.
-2. Download **Bord Gáis Energy Account** and restart HA.
+2. Download **Bord Gáis Energy Account** and restart HA. Enable beta versions in HACS to select this prerelease.
 3. Settings → Devices & Services → Add integration → **Bord Gáis Energy Account**.
-4. Choose **Username and password (experimental)** and enter your credentials privately into HA. If login fails, inspect the safe local log category and switch to **Browser session**. For the session fallback, follow the steps below.
-4. Sign in normally at https://www.bordgaisenergy.ie/sign-in in Chrome.
-5. On that signed-in page, open Developer Console (`⌘⌥J` on macOS) and run:
+4. Choose **Sign in with browser (local network beta)** and enter HA's private LAN IPv4 address.
+5. In the separate browser window, accept the certificate exception for that local address and log in normally. Allow HA's popup if the browser blocks it. Setup finishes automatically and the tab attempts to close after success. No token copying is required.
+
+For an existing connection, updating the integration does not force a new login. HA offers reauthentication when its saved session cannot renew; choose browser sign-in there. Adding the same accounts again will report that they are already configured.
+
+### Browser-session fallback
+
+1. Choose **Browser session** during setup or reauthentication.
+2. Sign in normally at https://www.bordgaisenergy.ie/sign-in in Chrome.
+3. On that signed-in page, open Developer Console (`⌘⌥J` on macOS) and run:
 
    ```javascript
    copy(JSON.stringify({
@@ -30,7 +41,7 @@ Once this repository is published:
    ```
 
    `undefined` is normal: the command copies the session JSON to your clipboard.
-6. Paste it into the integration's masked **Browser session JSON** field. Clear the clipboard afterward. Never paste session tokens into chat, issues or screenshots.
+4. Paste it into the integration's masked **Browser session JSON** field. Clear the clipboard afterward. Never paste session tokens into chat, issues or screenshots.
 
 Electricity and gas accounts are discovered automatically and receive separate devices. Multiple accounts of the same service type have separate stable IDs even if their initial display names match.
 
@@ -69,7 +80,7 @@ All updates are asynchronous and normally involve one account-list request plus 
 ```sh
 python3 -m venv .venv
 . .venv/bin/activate
-pip install aiohttp
+pip install aiohttp cryptography voluptuous
 python3 -m unittest discover -s tests -v
 python3 -m compileall -q custom_components
 ```
@@ -90,7 +101,7 @@ MIT. This integration was written independently from observations of the public 
 
 ## Password-login debugging
 
-Failed password login logs a warning containing only stage, HTTP status and a fixed category. It does not log the username, password, API key, anonymous ID, headers, request/response bodies or tokens. A generic 400/401/403 rejection alone does not prove CAPTCHA is mandatory. No CAPTCHA token is fabricated or challenge bypass attempted. OTP challenges are detected but require browser-session fallback for now.
+Failed password login logs a warning containing only stage, HTTP status and a fixed category. It does not log the username, password, API key, anonymous ID, headers, request/response bodies or tokens. Browser sign-in logs only fixed outcome/status categories. A generic 400/401/403 rejection alone does not prove CAPTCHA is mandatory. No CAPTCHA token is fabricated or challenge bypass attempted. OTP-enabled accounts have not yet been verified with the browser proxy; use browser-session fallback if needed.
 
 For extra local stage logs, call HA action `logger.set_level` with:
 

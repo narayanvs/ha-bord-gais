@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.0-beta.4
+
+- Add browser sign-in and reauthentication with normal supplier CAPTCHA handling; verified locally with one electricity/gas account.
+- Capture renewable sessions automatically without copying JSON; validate accounts before setup and reject wrong-account reauthentication.
+- Isolate supplier scripts from HA browser storage using a temporary HTTPS listener on the private LAN IP, with a generated local certificate.
+- Complete the HA flow automatically and clean up the short-lived listener, certificate and browser session keys.
+- Preserve browser-session and experimental password fallbacks, existing polling, restart cache and token refresh.
+- Document the beta limitation: local-network browser login and a temporary certificate exception are required.
+
 ## 0.1.0-beta.3
 
 - Add experimental username/password setup and reauthentication, keeping browser session fallback.

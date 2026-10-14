@@ -5,6 +5,7 @@
       "user": {
         "title": "Connect your Bord Gáis account",
         "menu_options": {
+          "browser": "Sign in with browser (local network beta)",
           "password": "Username and password (experimental)",
           "session": "Browser session (verified fallback)"
         }
@@ -12,6 +13,7 @@
       "reauth_confirm": {
         "title": "Renew your Bord Gáis authentication",
         "menu_options": {
+          "browser": "Sign in with browser (local network beta)",
           "password": "Username and password (experimental)",
           "session": "Browser session (verified fallback)"
         }
@@ -30,6 +32,17 @@
         "data": {
           "session_json": "Browser session JSON"
         }
+      },
+      "browser": {
+        "title": "Sign in through your browser",
+        "description": "Use your home network and enter Home Assistant's private IPv4 address. A temporary HTTPS login window opens on port 8743. Accept the LOCAL certificate warning for this address only, then sign in normally. The integration saves a renewable session, never your password. No JSON copying or extra container is needed. Do not expose this port to the internet.",
+        "data": {
+          "local_host": "Home Assistant private LAN IPv4 address"
+        }
+      },
+      "browser_wait": {
+        "title": "Complete supplier sign-in",
+        "description": "Open the website and sign in normally. This expires after 15 minutes. Setup finishes automatically. CAPTCHA is handled by the supplier website; no challenge is bypassed. The sign-in page opens separately and tries to close after success; if blocked, close that tab yourself."
       }
     },
     "error": {
@@ -38,16 +51,19 @@
       "cannot_connect": "Could not retrieve account data. Try later.",
       "rate_limited": "The supplier is limiting requests. Wait before trying again.",
       "login_cooldown": "Please wait: at least 60 seconds between attempts and at most three attempts per 15 minutes.",
-      "browser_verification_required": "The supplier requested CAPTCHA/browser verification. Use browser session setup.",
+      "browser_verification_required": "The supplier requested browser verification. Choose Sign in with browser, or use the browser-session fallback.",
       "otp_required": "The supplier requested an OTP. OTP entry is not supported in this beta; use browser session setup.",
       "password_change_required": "The supplier requires a password change. Complete it on their website.",
       "login_rejected": "The supplier rejected this login. This may require browser verification; check the safe local status log.",
-      "login_page_changed": "Could not read the public login configuration. Check the local logs and use browser session setup."
+      "login_page_changed": "Could not read the public login configuration. Check the local logs and use browser session setup.",
+      "browser_running": "A browser sign-in is already active. Finish it or wait for its 15-minute expiry.",
+      "browser_cannot_start": "Could not start HTTPS browser sign-in. Check the private LAN IPv4 address and whether port 8743 is already in use."
     },
     "abort": {
       "already_configured": "These accounts are already configured.",
       "wrong_account": "The session belongs to a different set of accounts. Add it as a separate integration.",
-      "reauth_successful": "Session updated."
+      "reauth_successful": "Session updated.",
+      "browser_expired": "Browser sign-in expired. Start a fresh flow."
     }
   },
   "options": {
