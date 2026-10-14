@@ -1,0 +1,36 @@
+submit_gas_meter_reading:
+  name: Submit gas meter reading
+  description: >-
+    Preview a manually entered gas meter reading by default. To send it to Bord
+    Gais, turn off Dry run and enable Confirm submission. Use whole meter digits,
+    not billed kWh; ignore decimal digits. Requires administrator access.
+    Never automatically retries a submission. A timeout may mean it was received:
+    check the supplier portal before trying again. Acceptance does not create a bill.
+  fields:
+    entity_id:
+      name: Gas meter reading sensor
+      description: Select the Last actual gas meter reading sensor for the correct gas account.
+      required: true
+      selector:
+        entity:
+          filter:
+            - integration: bord_gais_energy
+              domain: sensor
+    reading:
+      name: Physical meter reading
+      description: Whole digits shown on the gas meter, including any leading zeroes; no decimals or kWh conversion.
+      required: true
+      selector:
+        text:
+    dry_run:
+      name: Dry run (preview only)
+      description: Keep enabled to validate and preview without sending a reading.
+      default: true
+      selector:
+        boolean:
+    confirm:
+      name: Confirm submission to supplier
+      description: Required together with Dry run disabled. This sends a real reading that may affect billing.
+      default: false
+      selector:
+        boolean:

@@ -1,8 +1,15 @@
 """Bord Gáis supplier account data, independent of ESB meter statistics."""
 from homeassistant.const import Platform
 from .coordinator import BGECoordinator
-from .const import DEFAULT_POLL_HOURS
+from .const import DOMAIN, DEFAULT_POLL_HOURS
+from homeassistant.helpers import config_validation as cv
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 PLATFORMS = [Platform.SENSOR, Platform.BUTTON]
+
+async def async_setup(hass, config):
+    from .services import register_services
+    register_services(hass)
+    return True
 
 async def async_setup_entry(hass, entry):
     coordinator = BGECoordinator(hass, entry)
@@ -24,3 +31,4 @@ async def async_remove_entry(hass, entry):
     from homeassistant.helpers.storage import Store
     from .const import DOMAIN
     await Store(hass, 1, DOMAIN + '.' + entry.entry_id).async_remove()
+    await Store(hass, 1, DOMAIN + '.gas_submissions.' + entry.entry_id).async_remove()

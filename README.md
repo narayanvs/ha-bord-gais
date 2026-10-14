@@ -1,6 +1,6 @@
 # Bord Gáis Energy Account for Home Assistant
 
-An unofficial, read-only supplier-account integration for Home Assistant. It reports actual Bord Gáis account credit/balance, bills and payment due dates. It complements ESB meter integrations; it does not import duplicate electricity readings or require solar, an inverter, MQTT or another container.
+An unofficial supplier-account integration for Home Assistant, with account monitoring and an optional manual gas meter-reading action. It reports actual Bord Gáis account credit/balance, bills and payment due dates. It complements ESB meter integrations; it does not import duplicate electricity readings or require solar, an inverter, MQTT or another container.
 
 **Early beta:** authenticated account reads and one token refresh have been verified against a real electricity/gas account. Long-term refresh reliability and other account types still need testing. This is not affiliated with Bord Gáis Energy.
 
@@ -70,6 +70,29 @@ The meter endpoint supplies the register value but does not identify its physica
 **Do not use the latest billed usage as a cumulative HA Energy gas counter.** It is an individual bill-period quantity, has no `total_increasing` state class, and can legitimately decrease on the next bill. The integration does not allocate a two-month bill across individual days. Period dates and history support bill-to-bill charts and comparisons.
 
 Gas reports add two read-only requests per gas account on the existing account-update schedule. A missing/malformed gas response leaves usage unknown without inventing zero or discarding otherwise valid financial data. A supplier rate limit still stops the update. Upgrading an older cached gas account performs one new account-data update to populate these fields.
+
+### Manual gas meter submissions (experimental, beta.9)
+
+In **Developer Tools → Actions** (or **Tools → Actions** on newer HA), select **Bord Gáis Energy: Submit gas meter reading** (`bord_gais_energy.submit_gas_meter_reading`). This action requires administrator access. Select the integration's **Last actual gas meter reading** sensor for the correct gas account and enter the whole reading from the physical meter—not billed kWh. Gas Networks Ireland says to ignore digits after the comma/decimal or in the red box: https://www.gasnetworks.ie/gas-meters/meter-reading .
+
+**Preview is the default.** Keep **Dry run** enabled to check the previous actual reading/date, meter digit count, supplier eligibility and preferred reading-time flag without writing anything to the supplier. The preferred-time flag is advisory; actual submissions still require the supplier's eligibility flag. Preview requires a valid supplier login.
+
+Example **preview only**, using a placeholder sensor and synthetic reading:
+
+```yaml
+action: bord_gais_energy.submit_gas_meter_reading
+data:
+  entity_id: sensor.your_gas_meter_reading
+  reading: "01234"
+  dry_run: true
+  confirm: false
+```
+
+To send your real reading manually, switch **Dry run off** and **Confirm submission on**. The action sends one POST only. HTTP 200/201 means the supplier accepted the submission for processing, following the website's own success rule; it does not prove a bill was recalculated or that the last-actual-reading sensor changed immediately. Actual end-to-end submission has not yet been verified with a real meter reading.
+
+Timeouts and server errors can leave the result uncertain. **Do not blindly retry: check the supplier portal first.** A small local attempt record is saved before sending; accepted or uncertain identical readings are blocked across restarts. A minute-long cooldown limits repeat attempts. Removing this integration also removes its guard record. Passwords, account IDs and request/response bodies are never logged. Normal polling remains read-only, and no reading is submitted automatically.
+
+A future physical meter reader can supply an input to this action, but no G130 hardware-reading capability or automatic submission is included here. We need to verify the installed meter's accessible interface before selecting reader hardware.
 
 ### What it does not calculate
 

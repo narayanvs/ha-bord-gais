@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.0-beta.9
+
+- Expose an admin-only manual gas meter-reading action in HA, with preview enabled by default and explicit confirmation required for real submissions.
+- Validate the selected gas account, current supplier eligibility, digit count and last actual reading before sending.
+- Send at most one gas-reading POST per action; never replay writes after authentication failures, timeouts or ambiguous responses.
+- Persist a pre-send guard so identical accepted/uncertain readings cannot be blindly resent after an HA restart.
+- Tests use synthetic readings and mocked HTTP only; no actual supplier reading has been submitted by development checks.
+
 ## 0.1.0-beta.8
 
 - Add supplier-reported billed gas usage (kWh), bill-period dates, cost including VAT and VAT amount.

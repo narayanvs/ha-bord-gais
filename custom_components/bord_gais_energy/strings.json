@@ -63,5 +63,29 @@
         }
       }
     }
+  },
+  "services": {
+    "submit_gas_meter_reading": {
+      "name": "Submit gas meter reading",
+      "description": "Preview by default. Real submission requires Dry run off and explicit confirmation. No automatic write retries. Administrator access required.",
+      "fields": {
+        "entity_id": {
+          "name": "Gas meter reading sensor",
+          "description": "Select Last actual gas meter reading for the correct gas account."
+        },
+        "reading": {
+          "name": "Physical meter reading",
+          "description": "Whole meter digits only; ignore decimal digits. Do not enter billed kWh."
+        },
+        "dry_run": {
+          "name": "Dry run (preview only)",
+          "description": "Validate and return a preview without sending a meter reading."
+        },
+        "confirm": {
+          "name": "Confirm submission to supplier",
+          "description": "Enable only when Dry run is off and you intend to send a real reading."
+        }
+      }
+    }
   }
 }
