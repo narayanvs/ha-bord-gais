@@ -6,7 +6,7 @@ An unofficial, read-only supplier-account integration for Home Assistant. It rep
 
 ## Authentication
 
-This beta uses **browser session authentication**, not username/password-only login. The portal uses reCAPTCHA and can require an OTP. Each user signs in normally and supplies their own session privately during integration setup. The integration attempts token refresh automatically; if renewal fails, HA requests reauthentication.
+**Beta.3 adds experimental username/password setup.** Choose that option in Devices & Services to submit one login request without a CAPTCHA token. This is a test path: password-only authentication has not yet been verified against a real account. If the portal requires CAPTCHA or OTP, use the verified **Browser session** fallback. The integration attempts session-token refresh automatically; if renewal fails, HA requests reauthentication. Your username and password are used only for the login request and are not saved in the config entry.
 
 No credentials, real account identifiers, customer files or financial snapshots belong in this repository. Sessions are stored in HA's config-entry storage and normalized financial data in its local cache. They are **not encrypted by this integration**; protect HA's config directory and backups as you would other integration credentials. Downloadable integration diagnostics exclude tokens, identifiers, addresses and financial figures.
 
@@ -17,6 +17,7 @@ Once this repository is published:
 1. HACS → Custom repositories → add this repository as **Integration**.
 2. Download **Bord Gáis Energy Account** and restart HA.
 3. Settings → Devices & Services → Add integration → **Bord Gáis Energy Account**.
+4. Choose **Username and password (experimental)** and enter your credentials privately into HA. If login fails, inspect the safe local log category and switch to **Browser session**. For the session fallback, follow the steps below.
 4. Sign in normally at https://www.bordgaisenergy.ie/sign-in in Chrome.
 5. On that signed-in page, open Developer Console (`⌘⌥J` on macOS) and run:
 
@@ -86,3 +87,17 @@ Create the public `ha-bord-gais` repository, then push `main`. Add GitHub topics
 ## Licence
 
 MIT. This integration was written independently from observations of the public portal frontend and verified private responses; no supplier frontend bundles, customer files or existing ESB integration code are distributed.
+
+## Password-login debugging
+
+Failed password login logs a warning containing only stage, HTTP status and a fixed category. It does not log the username, password, API key, anonymous ID, headers, request/response bodies or tokens. A generic 400/401/403 rejection alone does not prove CAPTCHA is mandatory. No CAPTCHA token is fabricated or challenge bypass attempted. OTP challenges are detected but require browser-session fallback for now.
+
+For extra local stage logs, call HA action `logger.set_level` with:
+
+```yaml
+custom_components.bord_gais_energy.auth: debug
+```
+
+Only enable this integration logger; enabling global HTTP or aiohttp debug logging can reveal credentials outside this integration's logging controls. Remove debug logging after testing.
+
+Login attempts are limited to three per username in 15 minutes, at least 60 seconds apart, shared across setup flows and persisted through restarts. The budget stores only a hash and timestamps, never the username or password. These are local protective limits, not a claim about the supplier's lockout policy.

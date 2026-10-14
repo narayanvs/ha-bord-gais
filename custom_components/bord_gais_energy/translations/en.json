@@ -4,14 +4,29 @@
     "step": {
       "user": {
         "title": "Connect your Bord Gáis account",
-        "description": "Sign in on the Bord Gáis website, then privately paste the session JSON described in the README. Username/password-only login is not supported in this beta. Session tokens are stored by Home Assistant, never in the public repository.",
-        "data": {
-          "session_json": "Browser session JSON"
+        "menu_options": {
+          "password": "Username and password (experimental)",
+          "session": "Browser session (verified fallback)"
         }
       },
       "reauth_confirm": {
-        "title": "Renew your Bord Gáis session",
-        "description": "Sign in again in your browser and paste fresh session JSON for the same accounts.",
+        "title": "Renew your Bord Gáis authentication",
+        "menu_options": {
+          "password": "Username and password (experimental)",
+          "session": "Browser session (verified fallback)"
+        }
+      },
+      "password": {
+        "title": "Sign in with username and password",
+        "description": "Experimental: submits one login request without a CAPTCHA token. If the supplier rejects it, local logs record only status and error category. Credentials are discarded after login; renewable session tokens are saved. No automatic password retries.",
+        "data": {
+          "username": "Username / email",
+          "password": "Password"
+        }
+      },
+      "session": {
+        "title": "Connect using a browser session",
+        "description": "Sign in on the supplier website and paste the session JSON described in the README. Never publish these tokens.",
         "data": {
           "session_json": "Browser session JSON"
         }
@@ -21,7 +36,13 @@
       "invalid_session": "Paste valid session JSON containing accessToken, refreshToken and anonymousId.",
       "invalid_auth": "Session expired or rejected. Sign in again and copy a fresh session.",
       "cannot_connect": "Could not retrieve account data. Try later.",
-      "rate_limited": "The supplier is limiting requests. Wait before trying again."
+      "rate_limited": "The supplier is limiting requests. Wait before trying again.",
+      "login_cooldown": "Please wait: at least 60 seconds between attempts and at most three attempts per 15 minutes.",
+      "browser_verification_required": "The supplier requested CAPTCHA/browser verification. Use browser session setup.",
+      "otp_required": "The supplier requested an OTP. OTP entry is not supported in this beta; use browser session setup.",
+      "password_change_required": "The supplier requires a password change. Complete it on their website.",
+      "login_rejected": "The supplier rejected this login. This may require browser verification; check the safe local status log.",
+      "login_page_changed": "Could not read the public login configuration. Check the local logs and use browser session setup."
     },
     "abort": {
       "already_configured": "These accounts are already configured.",

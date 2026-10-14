@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.0-beta.3
+
+- Add experimental username/password setup and reauthentication, keeping browser session fallback.
+- Read public client configuration from the login page; submit only one CAPTCHA-free password request per attempt.
+- Log fixed request stages, HTTP statuses and error categories locally without credentials or response bodies.
+- Persist a short login-attempt budget across HA restarts; discard passwords after authentication.
+
 ## 0.1.0-beta.2
 
 - Add local integration icons required by HACS brand validation.

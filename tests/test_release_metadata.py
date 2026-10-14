@@ -9,9 +9,9 @@ module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
 class Tests(unittest.TestCase):
     def test_current_release(self):
         values,notes=module.metadata(Path(__file__).resolve().parents[1])
-        self.assertEqual(values['tag'],'v0.1.0-beta.2')
+        self.assertEqual(values['tag'],'v0.1.0-beta.3')
         self.assertEqual(values['prerelease'],'true')
-        self.assertIn('HACS',notes);self.assertNotIn('Initial read-only',notes)
+        self.assertIn('username/password',notes);self.assertNotIn('Initial read-only',notes)
     def test_tag_mismatch_rejected(self):
         with self.assertRaises(ValueError):module.metadata(Path(__file__).resolve().parents[1],'v9.9.9')
     def test_stable_and_missing_notes(self):
