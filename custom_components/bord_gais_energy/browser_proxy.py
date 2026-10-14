@@ -85,6 +85,7 @@ class BrowserLogin:
         self.certificate = None
         self.reserve = reserve
         self.on_complete = on_complete
+        self.on_close = None
         self.deadline = time.monotonic() + 900
         self.runner = None
         self.http = None
@@ -132,6 +133,11 @@ class BrowserLogin:
         if self.certificate:
             self.certificate.cleanup()
             self.certificate = None
+        if self.on_close:
+            self.on_close()
+            self.on_close = None
+        self.on_complete = None
+        self.reserve = None
 
     def response(self, body, status=200, content_type='text/html'):
         return web.Response(body=body, status=status, content_type=content_type, headers={

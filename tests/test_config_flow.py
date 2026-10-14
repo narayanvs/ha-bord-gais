@@ -74,7 +74,7 @@ class Tests(unittest.IsolatedAsyncioTestCase):
   self.assertEqual(f.hass.data,{'keep':'unchanged'})
  async def test_expired_browser_aborts(self):
   self.assertEqual((await self.flow().async_step_browser_wait())['reason'],'browser_expired')
- async def test_browser_finishes_without_frontend_and_clears_capture(self):
+ async def test_frontend_finishes_once_without_backend_consuming_flow(self):
   f=self.flow();tasks=[];results=[];step='wait'
   def task(coro):
    t=asyncio.create_task(coro);tasks.append(t);return t
@@ -98,6 +98,10 @@ class Tests(unittest.IsolatedAsyncioTestCase):
    self.assertEqual(result['type'],'external')
    self.assertEqual(await f._browser.capture(SESSION),{'account_count':1})
    await asyncio.gather(*tasks)
+  self.assertEqual(results,[])
+  self.assertIsNotNone(f._browser_auth)
+  # HA's UI consumes external_done and sends exactly one finish request.
+  await configure(f.flow_id)
   self.assertEqual(results[0]['type'],'create_entry')
   self.assertEqual(results[0]['data']['session'],SESSION)
   self.assertNotIn('password',results[0]['data'])

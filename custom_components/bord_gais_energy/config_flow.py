@@ -96,29 +96,20 @@ class BGEConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     self._browser_auth = (client.session, accounts, identity)
                     self._browser_finish_result = None
                     async def advance():
-                        # Let the HTTP handler finish capturing before completing the HA flow.
                         await asyncio.sleep(0)
                         try:
-                            result = await self.hass.config_entries.flow.async_configure(self.flow_id, {'complete': True})
-                            if result.get('type') == 'external_done':
-                                result = self._browser_finish_result or await self.hass.config_entries.flow.async_configure(self.flow_id)
-                            if result.get('type') == 'abort':
-                                reason = result.get('reason')
-                                self._browser.result['state'] = reason if reason in ('already_configured', 'wrong_account', 'reauth_successful') else 'setup_closed'
+                            # Notify HA's external-step UI; it owns the subsequent finish request.
+                            # Removing this flow here races the frontend and causes UnknownFlow.
+                            await self.hass.config_entries.flow.async_configure(self.flow_id, {'complete': True})
                         except Exception:
-                            # The frontend may have completed the same external flow first.
-                            finished = getattr(self, '_browser_finish_result', None)
-                            if not finished:
-                                self._browser.result['state'] = 'setup_closed'
-                            elif finished.get('reason') in ('wrong_account', 'already_configured', 'reauth_successful'):
-                                self._browser.result['state'] = finished['reason']
-                        finally:
+                            self._browser.result['state'] = 'setup_closed'
                             self._browser_auth = None
                             asyncio.get_running_loop().call_later(30, lambda: self.hass.async_create_task(self._browser.close()))
                     self.hass.async_create_task(advance())
                     return {'account_count': len(accounts)}
                 try:
                     self._browser = BrowserLogin(user_input['local_host'], capture, budget(self.hass).reserve)
+                    self._browser.on_close = lambda: setattr(self, '_browser_auth', None)
                     link = await self._browser.start()
                 except (OSError, ValueError):
                     errors['base'] = 'browser_cannot_start'
@@ -146,9 +137,13 @@ class BGEConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         try:
             result = await self.finish_auth(*captured, 'browser')
             self._browser_finish_result = result
+            if result.get('type') == 'abort':
+                reason = result.get('reason')
+                self._browser.result['state'] = reason if reason in ('wrong_account', 'already_configured', 'reauth_successful') else 'setup_closed'
             return result
         finally:
             self._browser_auth = None
+            asyncio.get_running_loop().call_later(30, lambda: self.hass.async_create_task(self._browser.close()))
 
     async def async_step_reauth(self, entry_data):
         return await self.async_step_reauth_confirm()

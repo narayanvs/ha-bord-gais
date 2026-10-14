@@ -35,8 +35,14 @@ class Certificates(unittest.IsolatedAsyncioTestCase):
   names=loaded.extensions.get_extension_for_class(x509.SubjectAlternativeName).value
   self.assertEqual(str(names.get_values_for_type(x509.IPAddress)[0]),'192.168.1.2')
   trial=m.BrowserLogin('192.168.1.2',None);trial.certificate=folder
+  cleared=[]
+  trial.on_close=lambda:cleared.append(True)
   await trial.close()
   self.assertFalse(root.exists())
+  self.assertEqual(cleared,[True])
+  self.assertIsNone(trial.on_complete)
+  await trial.close()
+  self.assertEqual(cleared,[True])
 
 class Requests(unittest.IsolatedAsyncioTestCase):
  async def asyncSetUp(self):

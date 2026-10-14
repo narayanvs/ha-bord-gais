@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.0-beta.5
+
+- Fix the browser sign-in completion race that could report invalid flow after successful supplier authentication.
+- Let Home Assistant consume the external-step completion once; retain the captured session until that finish request.
+- Clear unconsumed session captures when the temporary login server expires or closes.
+
 ## 0.1.0-beta.4
 
 - Add browser sign-in and reauthentication with normal supplier CAPTCHA handling; verified locally with one electricity/gas account.

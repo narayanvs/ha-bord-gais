@@ -9,7 +9,7 @@ module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
 class Tests(unittest.TestCase):
     def test_current_release(self):
         values,notes=module.metadata(Path(__file__).resolve().parents[1])
-        self.assertEqual(values['tag'],'v0.1.0-beta.4')
+        self.assertEqual(values['tag'],'v0.1.0-beta.5')
         self.assertEqual(values['prerelease'],'true')
         self.assertIn('browser sign-in',notes);self.assertNotIn('Initial read-only',notes)
     def test_tag_mismatch_rejected(self):
