@@ -61,6 +61,16 @@ Each account exposes:
 
 One diagnostic **Refresh** button updates all accounts. These balances are not cumulative energy counters and have no `total_increasing` state class.
 
+### Gas usage (beta.8)
+
+Gas accounts also expose **latest billed gas usage (kWh)**, the bill period's start/end dates, billed-period cost including VAT, VAT amount, and the last actual meter reading/date. This is real supplier-reported data. The gas-usage sensor's `billed_history` attribute holds normalized billed periods returned for a rolling one-year request; it contains no account or bill identifiers. Available history depends on the supplier account. No daily usage is invented between meter readings.
+
+The meter endpoint supplies the register value but does not identify its physical unit, so the integration does not label it m³ or convert it. Use billed kWh for comparable energy amounts. These sensors update when the supplier publishes readings/bills and HA next polls; they are not live measurements.
+
+**Do not use the latest billed usage as a cumulative HA Energy gas counter.** It is an individual bill-period quantity, has no `total_increasing` state class, and can legitimately decrease on the next bill. The integration does not allocate a two-month bill across individual days. Period dates and history support bill-to-bill charts and comparisons.
+
+Gas reports add two read-only requests per gas account on the existing account-update schedule. A missing/malformed gas response leaves usage unknown without inventing zero or discarding otherwise valid financial data. A supplier rate limit still stops the update. Upgrading an older cached gas account performs one new account-data update to populate these fields.
+
 ### What it does not calculate
 
 The supplier account balance is authoritative as reported; it excludes our own estimates of unbilled usage and unposted export earnings. Combined microgeneration bills can contain net amounts. This beta does not guess separate export-credit components or gross bill charges from those amounts. The bill-summary endpoint failed in initial testing and is not polled.

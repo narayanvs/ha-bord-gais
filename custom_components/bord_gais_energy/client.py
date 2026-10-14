@@ -5,8 +5,10 @@ import hashlib
 import json
 import re
 import time
+from datetime import date
 import aiohttp
 from .account_data import summarize
+from .gas_data import normalize_gas
 
 BASE = 'https://www.bordgaisenergy.ie'
 MAX_BYTES = 4 * 1024 * 1024
@@ -42,10 +44,19 @@ class BGEClient:
         self.lock = asyncio.Lock()
         self.refreshed = False
 
-    async def _request(self, path, payload=None):
+    async def _request(self, path, payload=None, params=None):
         method = 'POST' if payload is not None else 'GET'
-        if not ((method == 'POST' and path == '/api/auth/refresh-token') or
-                (method == 'GET' and (path == '/api/accounts/' or re.fullmatch(r'/api/accounts/[A-Za-z0-9_-]+(?:/transactions)?', path)))):
+        account_query = params and isinstance(params.get('accountId'), str) and re.fullmatch(r'[A-Za-z0-9_-]+', params['accountId'])
+        gas_report = path == '/api/reports/v1/cost-and-consumption' and account_query and set(params) == {'from', 'to', 'accountId', 'accountType'} and params['accountType'] == 'QH'
+        if gas_report:
+            try:
+                gas_report = date.fromisoformat(params['from']) <= date.fromisoformat(params['to'])
+            except (ValueError, TypeError):
+                gas_report = False
+        gas_meter = path == '/api/meters/v1/config' and account_query and set(params) == {'accountId'}
+        basic = not params and ((method == 'POST' and path == '/api/auth/refresh-token') or
+            (method == 'GET' and (path == '/api/accounts/' or re.fullmatch(r'/api/accounts/[A-Za-z0-9_-]+(?:/transactions)?', path))))
+        if not (basic or (method == 'GET' and (gas_report or gas_meter))):
             raise PortalError('forbidden_endpoint')
         headers = {'Accept': 'application/json', 'Cache-Control': 'no-cache',
                    'Origin': BASE, 'Referer': BASE + '/sign-in',
@@ -54,7 +65,7 @@ class BGEClient:
             headers['Authorization'] = 'Bearer ' + self.session['accessToken']
         try:
             async with self.http.request(method, BASE + path, headers=headers,
-                    params={'cache': str(time.time_ns() // 1000000)} if method == 'GET' else None,
+                    params={**(params or {}), 'cache': str(time.time_ns() // 1000000)} if method == 'GET' else None,
                     json=payload, allow_redirects=False, timeout=aiohttp.ClientTimeout(total=30)) as response:
                 raw = bytearray()
                 async for chunk in response.content.iter_chunked(65536):
@@ -112,14 +123,37 @@ class BGEClient:
             self.refreshed = False
             await self._refresh()
 
-    async def _read(self, path):
+    async def _read(self, path, params=None):
         if not self.refreshed and self._expires_soon():
             await self._refresh()
         try:
-            return await self._request(path)
+            return await self._request(path, params=params)
         except AuthError:
             await self._refresh()
-            return await self._request(path)
+            return await self._request(path, params=params)
+
+    async def _gas_data(self, ident):
+        today = date.today()
+        try:
+            start = today.replace(year=today.year - 1)
+        except ValueError:
+            start = today.replace(year=today.year - 1, day=28)
+        async def optional(path, params):
+            try:
+                return await self._read(path, params)
+            except AuthError:
+                raise
+            except PortalError as exc:
+                if str(exc) == 'rate_limited':
+                    raise
+                return None
+        report = await optional('/api/reports/v1/cost-and-consumption', {
+            'from': start.isoformat(), 'to': today.isoformat(), 'accountId': ident, 'accountType': 'QH'})
+        meter = await optional('/api/meters/v1/config', {'accountId': ident})
+        try:
+            return normalize_gas(report, meter, ident)
+        except ValueError:
+            return normalize_gas(None, meter, ident)
 
     async def fetch(self):
         async with self.lock:
@@ -161,4 +195,6 @@ class BGEClient:
                     if key in result:
                         raise PortalError('invalid_response')
                     result[key] = {**summarize(details, transactions), 'transactions_available': available}
+                    if details['account'].get('serviceType') == 'GS':
+                        result[key].update(await self._gas_data(ident))
                 return result

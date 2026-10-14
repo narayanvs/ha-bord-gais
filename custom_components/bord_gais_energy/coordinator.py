@@ -44,7 +44,8 @@ class BGECoordinator(DataUpdateCoordinator):
             if stamp and stamp.tzinfo:
                 self.last_success = stamp
                 age = dt_util.utcnow() - stamp
-                if timedelta(0) <= age < timedelta(hours=self.poll_hours):
+                usage_supported = all(v.get('service') != 'gas' or 'gas_usage_available' in v for v in cached['accounts'].values() if isinstance(v, dict))
+                if usage_supported and timedelta(0) <= age < timedelta(hours=self.poll_hours):
                     self.update_interval = timedelta(hours=self.poll_hours) - age
                     self.async_set_updated_data(cached['accounts'])
                     self.schedule_renewal()

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.0-beta.8
+
+- Add supplier-reported billed gas usage (kWh), bill-period dates, cost including VAT and VAT amount.
+- Add the last actual gas meter-register reading and date; do not guess its physical unit.
+- Include normalized billed-period history on the gas-usage sensor, with account and bill identifiers removed.
+- Fetch gas reports on the existing account-update schedule; preserve financial data if optional gas endpoints fail.
+- Refresh older cached gas snapshots once on upgrade so the new sensors populate.
+- Billed usage is a period total, not live/daily gas flow or a cumulative HA Energy counter.
+
 ## 0.1.0-beta.7
 
 - Fix session expiry after browser sign-in: observed access tokens last five minutes and refresh tokens 15 minutes.

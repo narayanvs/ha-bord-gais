@@ -17,9 +17,20 @@ DESCRIPTIONS = (
     SensorEntityDescription(key='last_success', name='Last successful update', device_class=SensorDeviceClass.TIMESTAMP, entity_category=EntityCategory.DIAGNOSTIC),
 )
 
+# Period quantities are intentionally not total_increasing energy counters.
+GAS_DESCRIPTIONS = (
+    SensorEntityDescription(key='gas_latest_billed_usage_kwh', name='Latest billed gas usage', native_unit_of_measurement='kWh', device_class=SensorDeviceClass.ENERGY),
+    SensorEntityDescription(key='gas_bill_period_start', name='Gas bill period start', device_class=SensorDeviceClass.DATE),
+    SensorEntityDescription(key='gas_bill_period_end', name='Gas bill period end', device_class=SensorDeviceClass.DATE),
+    SensorEntityDescription(key='gas_latest_bill_cost', name='Gas billed period cost', native_unit_of_measurement='EUR', device_class=SensorDeviceClass.MONETARY),
+    SensorEntityDescription(key='gas_latest_bill_vat', name='Gas billed period VAT', native_unit_of_measurement='EUR', device_class=SensorDeviceClass.MONETARY),
+    SensorEntityDescription(key='gas_last_actual_reading', name='Last actual gas meter reading', icon='mdi:counter'),
+    SensorEntityDescription(key='gas_last_actual_read_date', name='Last actual gas reading date', device_class=SensorDeviceClass.DATE),
+)
+
 async def async_setup_entry(hass, entry, async_add_entities):
     coordinator = entry.runtime_data
-    async_add_entities(BGEAccountSensor(coordinator, key, description) for key in coordinator.data for description in DESCRIPTIONS)
+    async_add_entities(BGEAccountSensor(coordinator, key, description) for key in coordinator.data for description in (DESCRIPTIONS + GAS_DESCRIPTIONS if coordinator.data[key]['service'] == 'gas' else DESCRIPTIONS))
 
 class BGEAccountSensor(CoordinatorEntity, SensorEntity):
     _attr_has_entity_name = True
@@ -50,6 +61,13 @@ class BGEAccountSensor(CoordinatorEntity, SensorEntity):
 
     @property
     def extra_state_attributes(self):
+        if self.entity_description.key == 'gas_latest_billed_usage_kwh':
+            data = self.coordinator.data.get(self.key, {})
+            return {'source': 'supplier_billed_periods', 'period_start': data.get('gas_bill_period_start'),
+                    'period_end': data.get('gas_bill_period_end'), 'billed_history': data.get('gas_usage_history', []),
+                    'daily_usage_available': False}
+        if self.entity_description.key == 'gas_last_actual_reading':
+            return {'source': 'supplier_last_actual_meter_read', 'register_unit': 'not_provided_by_supplier_api'}
         if self.entity_description.key == 'supplier_balance':
             return {'negative_means': 'credit', 'positive_means': 'amount_due',
                     'source': 'supplier_reported', 'includes_unbilled_estimates': False,
