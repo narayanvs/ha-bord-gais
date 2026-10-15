@@ -147,3 +147,16 @@ MIT. This integration was written independently from observations of the public 
 Browser sign-in logs fixed outcome/status categories, never passwords, tokens, account identifiers or request bodies. Do not enable global HTTP/aiohttp debug logging while authenticating. Login attempts are limited to three per username per 15 minutes and at least 60 seconds apart; only hashed usernames and timestamps are saved for this protective budget.
 
 Automatic IP detection removes the normal address-entry step, but cannot make a self-signed certificate trusted. Removing the warning needs either a certificate trusted on every client, or a dedicated login hostname served with a trusted certificate (for example through a locally accessible reverse proxy). Keep that hostname separate from the HA frontend to isolate supplier scripts. A trusted-hostname proxy mode is not implemented in this beta; do not forward the current listener publicly or assume a hostname alone fixes its certificate.
+
+### Session expiry and other-device logins
+
+HA renews before the access token or refresh token expires, independently of account downloads.
+Rotated tokens are saved immediately. On renewal failure, cached account values are retained
+internally but entities become unavailable and HA requests browser reauthentication.
+Diagnostics expose renewal timestamps, counts and safe error categories, never tokens.
+
+A new login on another device may revoke the session HA is using. This is a supplier-side
+possibility, not something refreshing can override. Automatic username/password login is
+not implemented: CAPTCHA can still be required, and competing logins could repeatedly
+invalidate each other. After supplier revocation or a shutdown beyond refresh-token expiry,
+use the integration's browser reauthentication flow. Indefinite unattended login is not guaranteed.

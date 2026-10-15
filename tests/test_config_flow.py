@@ -69,6 +69,7 @@ class Tests(unittest.IsolatedAsyncioTestCase):
   f=self.flow();f.context={'source':'reauth'};f.entry=types.SimpleNamespace(unique_id=IDENTITY)
   result=await f.finish_auth(SESSION,ACCOUNTS,IDENTITY,'browser')
   self.assertEqual(result['reason'],'reauth_successful')
+  self.assertFalse(f.updated['reload'])
   self.assertEqual(set(f.updated['data_updates']),{'session','account_keys','auth_method'})
  async def test_duplicate_does_not_replace_cache(self):
   f=self.flow();f.duplicate=True;f.hass.data={'keep':'unchanged'}

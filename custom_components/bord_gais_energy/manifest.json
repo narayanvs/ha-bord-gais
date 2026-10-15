@@ -1,6 +1,6 @@
 {
   "domain": "bord_gais_energy",
-  "name": "Bord Gáis Energy Account",
+  "name": "Bord G\u00e1is Energy Account",
   "codeowners": [
     "@narayanvs"
   ],
@@ -13,5 +13,5 @@
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/narayanvs/ha-bord-gais/issues",
   "requirements": [],
-  "version": "0.1.0-beta.10"
+  "version": "0.1.0-beta.11"
 }

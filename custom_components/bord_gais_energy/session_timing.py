@@ -20,12 +20,17 @@ def token_expiry(token):
 
 
 def renewal_delay(session, now=None):
-    """Refresh before its own expiry; independent of full account polling."""
+    """Renew before either token expires; only refresh expiry requires reauth."""
     now = time.time() if now is None else now
-    expiry = token_expiry(session.get('refreshToken', ''))
-    if expiry is None:
-        return 600.0
-    remaining = expiry - now
-    if remaining <= 0:
+    refresh_expiry = token_expiry(session.get('refreshToken', ''))
+    access_expiry = token_expiry(session.get('accessToken', ''))
+    if refresh_expiry is not None and refresh_expiry <= now:
         return 0.0
-    return max(1.0, min(600.0, remaining - min(120.0, remaining / 2)))
+    delay = 600.0
+    for expiry in (refresh_expiry, access_expiry):
+        if expiry is None:
+            continue
+        remaining = expiry - now
+        # An expired access token can still be renewed with a valid refresh token.
+        delay = min(delay, max(1.0, remaining - min(60.0, max(0.0, remaining / 2))))
+    return delay

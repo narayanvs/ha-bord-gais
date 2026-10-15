@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.0-beta.11
+
+- Renew before access-token expiry as well as refresh-token expiry, including cached startup with an expired access token.
+- Mark supplier entities unavailable when session renewal requires reauthentication; retain the cached snapshot without presenting it as a working connection.
+- Add credential-free session-renewal diagnostics and stop account requests after confirmed authentication failure.
+- Use the config-entry update listener for reauthentication reloads; ordinary token rotation never reloads the integration.
+- A supplier-revoked session (for example after another login) still requires browser sign-in; this release does not claim to bypass supplier session policy.
+
+
 ## 0.1.0-beta.10
 
 - Add electricity billed usage, period dates, billed cost and VAT sensors alongside gas usage.

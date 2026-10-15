@@ -21,8 +21,11 @@ async def async_setup_entry(hass, entry):
 
 async def async_update_options(hass, entry):
     coordinator = entry.runtime_data
-    if coordinator.poll_hours != entry.options.get('poll_hours', DEFAULT_POLL_HOURS):
-        await hass.config_entries.async_reload(entry.entry_id)
+    if (coordinator.poll_hours != entry.options.get('poll_hours', DEFAULT_POLL_HOURS)
+            or entry.data.get('session') != coordinator.client.session):
+        # Token rotation persists the same session held by the live client and
+        # must not reload it. A browser reauthentication replaces that session.
+        hass.config_entries.async_schedule_reload(entry.entry_id)
 
 async def async_unload_entry(hass, entry):
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)

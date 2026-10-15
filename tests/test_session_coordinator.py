@@ -13,6 +13,7 @@ with patch.dict(sys.modules,mods):
 class Tests(unittest.IsolatedAsyncioTestCase):
  def coordinator(self):
   c=m.BGECoordinator.__new__(m.BGECoordinator)
+  c.async_set_update_error=Mock();c.last_renewal_success=None;c.last_renewal_error=None;c.renewal_count=0
   c.hass=object();c.entry=types.SimpleNamespace(async_start_reauth=Mock())
   c.client=types.SimpleNamespace(session={'refreshToken':'synthetic-opaque'},renew_session=AsyncMock())
   c._cancel_renewal=None;c._renewal_failures=0;c._session_auth_failed=False;c._session_closed=False
@@ -29,6 +30,8 @@ class Tests(unittest.IsolatedAsyncioTestCase):
   with self.assertLogs(m._LOGGER,level='WARNING'):
    await c._renew_session(None);c.request_reauth()
   c.entry.async_start_reauth.assert_called_once()
+  c.async_set_update_error.assert_called_once()
+  self.assertEqual(c.last_renewal_error,'supplier_rejected_session')
   self.assertIsNone(c._cancel_renewal)
  async def test_network_retries_are_bounded(self):
   c=self.coordinator();c.client.renew_session.side_effect=client.PortalError('cannot_connect')

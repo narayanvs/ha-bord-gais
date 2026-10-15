@@ -14,6 +14,16 @@ class Timing(unittest.TestCase):
   self.assertEqual(m.renewal_delay({'refreshToken':'opaque'},1000),600)
  def test_invalid_claims_not_trusted(self):
   for exp in [True,'1000',None,float('inf')]:self.assertIsNone(m.token_expiry(jwt(exp)))
+class AccessTiming(unittest.TestCase):
+ def test_renew_before_five_minute_access_expiry(self):
+  self.assertEqual(m.renewal_delay({'accessToken':jwt(1300),'refreshToken':jwt(1900)},1000),240)
+ def test_expired_access_with_valid_refresh_renews_now(self):
+  self.assertEqual(m.renewal_delay({'accessToken':jwt(999),'refreshToken':jwt(1900)},1000),1)
+ def test_expired_refresh_cannot_be_saved_by_valid_access(self):
+  self.assertEqual(m.renewal_delay({'accessToken':jwt(1300),'refreshToken':jwt(999)},1000),0)
+ def test_earlier_refresh_deadline_wins(self):
+  self.assertEqual(m.renewal_delay({'accessToken':jwt(1600),'refreshToken':jwt(1050)},1000),25)
+
 class Renewal(unittest.IsolatedAsyncioTestCase):
  async def test_renewal_is_one_request_and_persists_rotation(self):
   from test_client import HTTP,Response

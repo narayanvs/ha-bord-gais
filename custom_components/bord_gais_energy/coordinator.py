@@ -20,6 +20,9 @@ class BGECoordinator(DataUpdateCoordinator):
         self.last_attempt = None
         self._cancel_renewal = None
         self._renewal_failures = 0
+        self.last_renewal_success = None
+        self.last_renewal_error = None
+        self.renewal_count = 0
         self._session_auth_failed = False
         self._session_closed = False
         self.store = Store(hass, 1, DOMAIN + '.' + entry.entry_id)
@@ -62,13 +65,16 @@ class BGECoordinator(DataUpdateCoordinator):
         self._session_closed = True
         self.cancel_renewal()
 
-    def request_reauth(self):
+    def request_reauth(self, reason='session_expired_or_revoked'):
         if self._session_closed:
             return
         self.cancel_renewal()
         if not self._session_auth_failed:
             self._session_auth_failed = True
-            _LOGGER.warning('Supplier session renewal requires browser reauthentication')
+            self.last_renewal_error = reason
+            self.async_set_update_error(ConfigEntryAuthFailed(
+                'Supplier session expired or was revoked; browser sign-in is required'))
+            _LOGGER.warning('Supplier session requires browser reauthentication (%s)', reason)
             self.entry.async_start_reauth(self.hass)
 
     def schedule_renewal(self, retry_delay=None):
@@ -90,19 +96,25 @@ class BGECoordinator(DataUpdateCoordinator):
         try:
             await self.client.renew_session()
         except AuthError:
-            self.request_reauth()
+            self.request_reauth('supplier_rejected_session')
         except PortalError as exc:
+            self.last_renewal_error = str(exc)
             self._renewal_failures += 1
             if str(exc) == 'rate_limited' or self._renewal_failures >= 3:
                 # A long cooldown outlives the short refresh token. Stop; never hammer login.
-                self.request_reauth()
+                self.request_reauth('rate_limited' if str(exc) == 'rate_limited' else 'renewal_unreachable')
             else:
                 self.schedule_renewal(retry_delay=30 * 2 ** (self._renewal_failures - 1))
         else:
             self._renewal_failures = 0
+            self.last_renewal_success = dt_util.utcnow()
+            self.last_renewal_error = None
+            self.renewal_count += 1
             self.schedule_renewal()
 
     async def _async_update_data(self):
+        if self._session_auth_failed:
+            raise ConfigEntryAuthFailed('Supplier session requires browser reauthentication')
         now = dt_util.utcnow()
         if self.last_attempt and now - self.last_attempt < timedelta(minutes=5):
             if self.data is not None and self.last_update_success:
