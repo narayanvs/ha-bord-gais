@@ -65,7 +65,7 @@ class BGEConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 return self.async_abort(reason='wrong_account')
             self.hass.data.setdefault(DOMAIN, {})[identity] = {
                 'retrieved_at': dt_util.utcnow().isoformat(), 'accounts': accounts}
-            return self.async_update_reload_and_abort(entry, data_updates=data, reload=False)
+            return self.async_update_and_abort(entry, data_updates=data)
         await self.async_set_unique_id(identity)
         self._abort_if_unique_id_configured()
         self.hass.data.setdefault(DOMAIN, {})[identity] = {

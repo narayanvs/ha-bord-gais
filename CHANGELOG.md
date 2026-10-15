@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.0-beta.12
+
+- Fix successful browser reauthentication crashing on Home Assistant because of an unsupported reload keyword.
+- Use the supported update-and-abort API; the existing config-entry listener performs the session reload.
+- Tighten the reauthentication regression test API signature so unsupported keywords fail tests.
+
 ## 0.1.0-beta.11
 
 - Renew before access-token expiry as well as refresh-token expiry, including cached startup with an expired access token.

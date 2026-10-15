@@ -23,8 +23,8 @@ class Flow:
  def async_external_step(self,**kw):return {'type':'external',**kw}
  def async_external_step_done(self,**kw):return {'type':'external_done',**kw}
  def _get_reauth_entry(self):return self.entry
- def async_update_reload_and_abort(self,entry,**kw):
-  self.updated=kw;return {'type':'abort','reason':'reauth_successful'}
+ def async_update_and_abort(self,entry,*,data_updates):
+  self.updated={"data_updates":data_updates};return {'type':'abort','reason':'reauth_successful'}
 
 def module(name,**values):
  m=types.ModuleType(name);m.__dict__.update(values);return m
@@ -69,7 +69,7 @@ class Tests(unittest.IsolatedAsyncioTestCase):
   f=self.flow();f.context={'source':'reauth'};f.entry=types.SimpleNamespace(unique_id=IDENTITY)
   result=await f.finish_auth(SESSION,ACCOUNTS,IDENTITY,'browser')
   self.assertEqual(result['reason'],'reauth_successful')
-  self.assertFalse(f.updated['reload'])
+  self.assertEqual(set(f.updated),{'data_updates'})
   self.assertEqual(set(f.updated['data_updates']),{'session','account_keys','auth_method'})
  async def test_duplicate_does_not_replace_cache(self):
   f=self.flow();f.duplicate=True;f.hass.data={'keep':'unchanged'}
