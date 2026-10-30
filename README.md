@@ -54,7 +54,7 @@ Each account exposes:
 | Account balance | Supplier-reported EUR balance: negative = credit, positive = amount due |
 | Account credit | Positive presentation of existing supplier credit |
 | Amount due | Positive presentation of money owed |
-| Latest bill charge | Ordinary bill charge from the matching transaction; unknown for combined microgeneration bills |
+| Latest bill charge | Ordinary bill charge, or gross electricity charge verified against the report and net transaction on combined microgeneration bills |
 | Latest bill issued / due | Supplier dates for the latest bill |
 | Next bill | Supplier's expected bill date |
 | Last successful update | Timestamp of the last successful supplier read |
@@ -73,7 +73,9 @@ Gas reports add two read-only requests per gas account on the existing account-u
 
 ### Electricity usage (beta.10)
 
-Electricity accounts expose **Latest billed electricity usage** (kWh), **Electricity bill period start/end**, **Electricity billed period cost** (including VAT) and **Electricity billed period VAT**. The usage sensor includes `period_start`, `period_end` and an identifier-free `billed_history` attribute, using the same billed-report schema as gas. Live electricity-account verification is pending a valid supplier session; unsupported or missing reports leave these values unknown.
+Electricity accounts expose **Latest billed electricity usage** (kWh), **Electricity bill period start/end**, **Electricity billed period cost** (including VAT) and **Electricity billed period VAT**. The usage sensor includes `period_start`, `period_end` and an identifier-free `billed_history` attribute, using the same billed-report schema as gas. Combined microgeneration bills are separated into consumption and export rows, with duplicate rows deduplicated and genuine conflicts rejected. The gross charge and posted export credit are exposed only when they reconcile with the exact latest bill transaction. Export credit has its own sensor and billing-period attributes; it is not assumed to cover one month. QH report start dates are exclusive boundaries, so the displayed period begins the following day.
+
+**EV Smart limitation:** the supplier report omits EV-window consumption from its total. For an identified EV Smart plan, billed kWh stays unknown, with `usage_status: supplier_ev_usage_omitted` and the supplier subtotal retained as an attribute. Cost, VAT and dates remain available. Use the bill PDF or ESB meter data for complete consumption; the integration does not invent the missing EV quantity.
 
 Both fuels provide bill-to-bill data for charts, usage comparisons and notifications when a new bill arrives. Compare complete periods, accounting for their length. These are delayed supplier totals, not live power, daily measurements or cumulative Energy dashboard counters. Keep inverter/ESB readings for current and half-hourly electricity monitoring. No tariff split or export quantity is inferred from an account balance.
 
@@ -104,7 +106,7 @@ A future physical meter reader can supply an input to this action, but no G130 h
 
 ### What it does not calculate
 
-The supplier account balance is authoritative as reported; it excludes our own estimates of unbilled usage and unposted export earnings. Combined microgeneration bills can contain net amounts. This beta does not guess separate export-credit components or gross bill charges from those amounts. The bill-summary endpoint failed in initial testing and is not polled.
+The supplier account balance is authoritative as reported; it excludes our own estimates of unbilled usage and unposted export earnings. Combined microgeneration bills can contain net amounts. The integration separates a report-backed export credit and gross charge only when they reconcile with the matching net transaction. It never derives them from the account balance. The bill-summary endpoint failed in initial testing and is not polled.
 
 The portal's `lastBill.amount` is a resulting balance, not necessarily the bill charge. The integration deliberately uses the matching ordinary transaction's `billAmount` for bill charge.
 

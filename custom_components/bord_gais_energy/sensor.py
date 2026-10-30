@@ -29,6 +29,7 @@ GAS_DESCRIPTIONS = (
 )
 
 ELECTRICITY_DESCRIPTIONS = (
+    SensorEntityDescription(key='posted_export_credit', name='Latest bill export credit', native_unit_of_measurement='EUR', device_class=SensorDeviceClass.MONETARY, icon='mdi:solar-power'),
     SensorEntityDescription(key='electricity_latest_billed_usage_kwh', name='Latest billed electricity usage', native_unit_of_measurement='kWh', device_class=SensorDeviceClass.ENERGY),
     SensorEntityDescription(key='electricity_bill_period_start', name='Electricity bill period start', device_class=SensorDeviceClass.DATE),
     SensorEntityDescription(key='electricity_bill_period_end', name='Electricity bill period end', device_class=SensorDeviceClass.DATE),
@@ -74,7 +75,9 @@ class BGEAccountSensor(CoordinatorEntity, SensorEntity):
             fuel = self.entity_description.key.split('_', 1)[0]
             return {'source': 'supplier_billed_periods', 'period_start': data.get(f'{fuel}_bill_period_start'),
                     'period_end': data.get(f'{fuel}_bill_period_end'), 'billed_history': data.get(f'{fuel}_usage_history', []),
-                    'daily_usage_available': False}
+                    'daily_usage_available': False,
+                    **({'usage_status': data.get('electricity_usage_status'),
+                        'reported_usage_subtotal_kwh': data.get('electricity_reported_usage_subtotal_kwh')} if fuel == 'electricity' else {})}
         if self.entity_description.key == 'gas_last_actual_reading':
             return {'source': 'supplier_last_actual_meter_read', 'register_unit': 'not_provided_by_supplier_api'}
         if self.entity_description.key == 'supplier_balance':
@@ -82,5 +85,12 @@ class BGEAccountSensor(CoordinatorEntity, SensorEntity):
                     'source': 'supplier_reported', 'includes_unbilled_estimates': False,
                     'last_successful_update': self.coordinator.last_success.isoformat() if self.coordinator.last_success else None}
         if self.entity_description.key == 'latest_bill_charge':
-            return {'source': 'ordinary_bill_transaction', 'combined_export_bill_charge_available': False}
+            data = self.coordinator.data.get(self.key, {})
+            return {'source': data.get('latest_bill_charge_source', 'not_available'),
+                    'combined_export_bill_charge_available': data.get('posted_export_credit') is not None}
+        if self.entity_description.key == 'posted_export_credit':
+            data = self.coordinator.data.get(self.key, {})
+            return {'source': data.get('posted_export_credit_status'),
+                    'period_start': data.get('electricity_export_period_start'),
+                    'period_end': data.get('electricity_export_period_end')}
         return None

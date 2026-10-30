@@ -133,7 +133,7 @@ class BGEClient:
             await self._refresh()
             return await self._request(path, params=params)
 
-    async def _usage_data(self, ident, service):
+    async def _usage_data(self, ident, service, *, usage_complete=True, latest_bill_id=None):
         today = date.today()
         try:
             start = today.replace(year=today.year - 1)
@@ -152,9 +152,9 @@ class BGEClient:
             'from': start.isoformat(), 'to': today.isoformat(), 'accountId': ident, 'accountType': 'QH'})
         if service == 'electricity':
             try:
-                return normalize_electricity(report, ident)
+                return normalize_electricity(report, ident, usage_complete=usage_complete, latest_bill_id=latest_bill_id)
             except ValueError:
-                return normalize_electricity(None, ident)
+                return normalize_electricity(None, ident, usage_complete=usage_complete, latest_bill_id=latest_bill_id)
         meter = await optional('/api/meters/v1/config', {'accountId': ident})
         try:
             return normalize_gas(report, meter, ident)
@@ -202,5 +202,12 @@ class BGEClient:
                         raise PortalError('invalid_response')
                     result[key] = {**summarize(details, transactions), 'transactions_available': available}
                     if details['account'].get('serviceType') in ('GS', 'EL'):
-                        result[key].update(await self._usage_data(ident, result[key]['service']))
+                        schedules = details['account'].get('rateSchedules', [])
+                        schedules = schedules if isinstance(schedules, list) else []
+                        ev_plan = any(isinstance(r, dict) and (r.get('rateScheduleCode') == 'ESVEV'
+                            or 'EV ' in str(r.get('rateScheduleName', '')).upper()) for r in schedules)
+                        usage = await self._usage_data(ident, result[key]['service'], usage_complete=not ev_plan,
+                            latest_bill_id=details.get('lastBill', {}).get('billId'))
+                        result[key].update(usage)
+                        result[key].update(summarize(details, transactions, usage))
                 return result

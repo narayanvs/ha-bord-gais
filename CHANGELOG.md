@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Separate electricity and export rows sharing a bill ID; reconcile gross charges and export credit with the exact latest transaction.
+- Expose posted export credit and its period; preserve costs/VAT/dates when EV Smart usage is incomplete.
+- Correct exclusive QH start boundaries, invalidate older electricity caches once, and reject conflicting or stale bill matches.
+
 ## 0.1.0-beta.12
 
 - Fix successful browser reauthentication crashing on Home Assistant because of an unsupported reload keyword.

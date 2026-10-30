@@ -12,7 +12,7 @@ def amount(value):
         return None
 
 
-def summarize(details, transactions):
+def summarize(details, transactions, electricity=None):
     account = details.get('account', {})
     balance = amount(account.get('balance'))
     last_bill = details.get('lastBill', {})
@@ -22,6 +22,15 @@ def summarize(details, transactions):
     # billAmount is the bill charge for ordinary bills, but includes microgen
     # netting on BillWithMicrogenCredit. Do not fabricate a gross charge there.
     charge = amount(matched.get('billAmount')) if matched and matched.get('transactionType') == 'Bill' else None
+    source = 'ordinary_bill_transaction' if charge is not None else 'not_available'
+    credit = None
+    # Only use the report for the exact latest bill, reconciled with its transaction.
+    if matched and matched.get('transactionType') == 'BillWithMicrogenCredit' and electricity:
+        gross = amount(electricity.get('electricity_latest_bill_cost'))
+        exported = amount(electricity.get('electricity_posted_export_credit'))
+        net = amount(matched.get('billAmount'))
+        if gross is not None and exported is not None and net is not None and abs(gross - exported - net) <= 0.021:
+            charge, credit, source = gross, exported, 'supplier_report_reconciled_with_transaction'
     return {
         'service': {'EL': 'electricity', 'GS': 'gas'}.get(account.get('serviceType'), 'other'),
         'currency': 'EUR',
@@ -35,8 +44,9 @@ def summarize(details, transactions):
         'latest_bill_resulting_balance': amount(last_bill.get('amount')),
         'next_bill_date': details.get('nextBill'),
         'has_export_capability': account.get('hasExportCapability') is True,
-        'posted_export_credit': None,
-        'posted_export_credit_status': 'not_separately_exposed_in_verified_responses',
+        'posted_export_credit': credit,
+        'latest_bill_charge_source': source,
+        'posted_export_credit_status': 'verified_combined_bill' if credit is not None else 'not_available',
         'transaction_count': len(transactions),
         'estimated_unbilled_balance': None,
         'estimated_unbilled_balance_status': 'not_calculated',
