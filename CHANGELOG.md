@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Allow the first browser login immediately on fresh systems; retain the 30-second cooldown between actual attempts. Add a low-uptime regression test for the intermittent CI failures.
+
 - Separate electricity and export rows sharing a bill ID; reconcile gross charges and export credit with the exact latest transaction.
 - Expose posted export credit and its period; preserve costs/VAT/dates when EV Smart usage is incomplete.
 - Correct exclusive QH start boundaries, invalidate older electricity caches once, and reject conflicting or stale bill matches.

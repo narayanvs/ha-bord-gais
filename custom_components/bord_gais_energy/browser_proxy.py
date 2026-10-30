@@ -92,7 +92,7 @@ class BrowserLogin:
         self.timer = None
         self.lock = asyncio.Lock()
         self.attempts = 0
-        self.last_attempt = 0
+        self.last_attempt = None
         self.result = {'state': 'waiting', 'attempts': 0}
         self.claimed = False
 
@@ -194,7 +194,7 @@ class BrowserLogin:
         if request.method == 'POST':
             async with self.lock:
                 now = time.monotonic()
-                if self.attempts >= 3 or now - self.last_attempt < 30:
+                if self.attempts >= 3 or (self.last_attempt is not None and now - self.last_attempt < 30):
                     return self.response(b'{"message":"Login cooldown. Wait 30 seconds; maximum three attempts per test."}',429,'application/json')
                 self.attempts += 1
                 self.last_attempt = now

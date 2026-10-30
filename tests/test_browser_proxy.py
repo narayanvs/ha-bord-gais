@@ -108,6 +108,26 @@ class FakeHTTP:
   return Response({'content':[{'accountId':'synthetic-private-id'}]})
 
 class Capture(Requests):
+ async def test_first_login_on_fresh_runner_then_cooldown(self):
+  from unittest.mock import patch
+  from types import SimpleNamespace
+  now=[5.0]
+  self.trial.http=FakeHTTP(400)
+  headers={**self.headers,'Origin':self.trial.origin}
+  with patch.object(m,'time',SimpleNamespace(monotonic=lambda:now[0])):
+   with self.assertLogs(m._LOGGER,level='WARNING'):
+    r=await self.client.post('/api/auth/token',headers=headers,json={})
+   self.assertEqual(r.status,400)
+   self.assertEqual(len(self.trial.http.calls),1)
+   now[0]=6.0
+   r=await self.client.post('/api/auth/token',headers=headers,json={})
+   self.assertEqual(r.status,429)
+   self.assertEqual(len(self.trial.http.calls),1)
+   now[0]=35.0
+   with self.assertLogs(m._LOGGER,level='WARNING'):
+    r=await self.client.post('/api/auth/token',headers=headers,json={})
+   self.assertEqual(r.status,400)
+   self.assertEqual(len(self.trial.http.calls),2)
  async def test_verified_outcome_has_no_secrets(self):
   completed=[]
   async def done(result):
